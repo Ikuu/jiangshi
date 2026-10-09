@@ -42,7 +42,8 @@ data class MangaDataClass(
     val inLibraryAt: Long,
     val source: SourceDataClass?,
 
-    val meta: Map<String, String>,
+    // Newer servers omit meta from REST responses
+    val meta: Map<String, String> = emptyMap(),
 
     val realUrl: String?,
     val lastFetchedAt: Long?,
@@ -95,6 +96,6 @@ data class ChapterDataClass(
     /** total chapter count, used to calculate if there's a next and prev chapter */
     val chapterCount: Int?,
 
-    /** used to store client specific values */
-    val meta: Map<String, String>,
+    /** used to store client specific values, omitted by newer servers */
+    val meta: Map<String, String> = emptyMap(),
 )

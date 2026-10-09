@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.suwayomi
 
 import android.content.Context
 import android.graphics.Color
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
@@ -102,6 +103,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         try {
             api.getTrackSearch(manga.url)
         } catch (e: Exception) {
+            Logger.e(e) { "Could not match ${manga.title} (url: ${manga.url}) with Suwayomi" }
             null
         }
 }

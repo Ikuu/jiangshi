@@ -29,7 +29,7 @@ class CrashLogUtil(private val context: Context) {
 
     suspend fun dumpLogs(exception: Throwable? = null) = withNonCancellableContext {
         try {
-            val file = context.createFileInCacheDir("yokai_crash_logs.txt")
+            val file = context.createFileInCacheDir("jiangshi_crash_logs.txt")
             file.appendText(getDebugInfo() + "\n\n")
             file.appendText(getExtensionsInfo() + "\n\n")
             exception?.let { file.appendText("$it\n\n") }
@@ -44,7 +44,7 @@ class CrashLogUtil(private val context: Context) {
 
     fun getDebugInfo(): String {
         return """
-            App version: ${BuildConfig.VERSION_NAME} (${BuildConfig.FLAVOR}, ${BuildConfig.COMMIT_SHA}, ${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TIME})
+            App version: ${BuildConfig.VERSION_NAME} (Yōkai ${BuildConfig.UPSTREAM_VERSION}, ${BuildConfig.FLAVOR}, ${BuildConfig.COMMIT_SHA}, ${BuildConfig.VERSION_CODE}, ${BuildConfig.BUILD_TIME})
             Android version: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
             Android build ID: ${Build.DISPLAY}
             Device brand: ${Build.BRAND}

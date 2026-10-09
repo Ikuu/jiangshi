@@ -448,16 +448,8 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
             // Reset Incognito Mode on relaunch
             preferences.incognitoMode().set(false)
 
-            val didMigration = Migrator.awaitAndRelease()
-
-            // Show changelog if needed
-            if (didMigration) {
-                if (!BuildConfig.DEBUG) {
-                    content.post {
-                        whatsNewSheet().show()
-                    }
-                }
-            }
+            // Jiangshi has no release notes page, so don't show Yokai's changelog sheet
+            Migrator.awaitAndRelease()
         }
 
         combine(

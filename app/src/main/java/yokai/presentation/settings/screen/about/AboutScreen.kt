@@ -6,15 +6,10 @@ import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -24,7 +19,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -39,7 +33,6 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.updater.AppUpdateChecker
 import eu.kanade.tachiyomi.data.updater.AppUpdateNotifier
 import eu.kanade.tachiyomi.data.updater.AppUpdateResult
-import eu.kanade.tachiyomi.data.updater.RELEASE_URL
 import eu.kanade.tachiyomi.util.CrashLogUtil
 import eu.kanade.tachiyomi.util.compose.LocalDialogHostState
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
@@ -48,7 +41,6 @@ import eu.kanade.tachiyomi.util.showNotificationPermissionPrompt
 import eu.kanade.tachiyomi.util.system.isOnline
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.localeContext
-import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.withUIContext
 import java.text.DateFormat
@@ -63,11 +55,7 @@ import yokai.domain.DialogHostState
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
 import yokai.presentation.component.preference.widget.TextPreferenceWidget
-import yokai.presentation.core.components.LinkIcon
 import yokai.presentation.core.enterAlwaysCollapsedAppBarScrollBehavior
-import yokai.presentation.core.icons.CustomIcons
-import yokai.presentation.core.icons.Discord
-import yokai.presentation.core.icons.GitHub
 import yokai.presentation.settings.SettingsScaffold
 import yokai.util.Screen
 import yokai.util.lang.getString
@@ -126,15 +114,6 @@ class AboutScreen : Screen() {
                     contentPadding = contentPadding,
                     state = listState,
                 ) {
-                    item {
-                        TextPreferenceWidget(
-                            title = stringResource(MR.strings.whats_new_this_release),
-                            onPreferenceClick = {
-                                context.openInBrowser(if (BuildConfig.DEBUG) SOURCE_URL else RELEASE_URL)
-                            },
-                        )
-                    }
-
                     if (BuildConfig.INCLUDE_UPDATER) {
                         item {
                             TextPreferenceWidget(
@@ -184,48 +163,8 @@ class AboutScreen : Screen() {
                             HorizontalDivider()
 
                             TextPreferenceWidget(
-                                title = stringResource(MR.strings.help_translate),
-                                onPreferenceClick = { context.openInBrowser("https://hosted.weblate.org/engage/yokai/") },
-                            )
-                        }
-                    }
-
-                    item {
-                        TextPreferenceWidget(
-                            title = stringResource(MR.strings.helpful_translation_links),
-                            onPreferenceClick = { context.openInBrowser("https://mihon.app/docs/contribute#helpful-links") },
-                        )
-                    }
-
-                    item {
-                        TextPreferenceWidget(
-                            title = stringResource(MR.strings.open_source_licenses),
-                            onPreferenceClick = { navigator.push(AboutLicenseScreen()) },
-                        )
-                    }
-
-                    item {
-                        FlowRow(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            LinkIcon(
-                                label = "Website",
-                                icon = Icons.Outlined.Public,
-                                url = "https://mihon.app",
-                            )
-                            LinkIcon(
-                                label = "Discord",
-                                icon = CustomIcons.Discord,
-                                url = "https://discord.gg/mihon",
-                            )
-                            LinkIcon(
-                                label = "GitHub",
-                                icon = CustomIcons.GitHub,
-                                url = "https://github.com/null2264/yokai",
+                                title = stringResource(MR.strings.open_source_licenses),
+                                onPreferenceClick = { navigator.push(AboutLicenseScreen()) },
                             )
                         }
                     }
@@ -237,7 +176,7 @@ class AboutScreen : Screen() {
     private fun getVersionName(): String = when {
         BuildConfig.DEBUG -> "Debug ${BuildConfig.COMMIT_SHA}"
         BuildConfig.NIGHTLY -> "Nightly ${BuildConfig.COMMIT_COUNT} (${BuildConfig.COMMIT_SHA})"
-        else -> "Release ${BuildConfig.VERSION_NAME}"
+        else -> "Release ${BuildConfig.VERSION_NAME} (based on Yōkai ${BuildConfig.UPSTREAM_VERSION})"
     }
 
     private fun Context.toastIfNotUserPrompt(message: StringResource, isUserPrompt: Boolean) {
@@ -296,5 +235,3 @@ fun getFormattedBuildTime(dateFormat: DateFormat): String {
         return BuildConfig.BUILD_TIME
     }
 }
-
-private const val SOURCE_URL = "https://github.com/null2264/yokai/commits/master"

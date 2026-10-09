@@ -28,6 +28,8 @@ fun runCommand(command: String): String {
 
 @Suppress("PropertyName")
 val _versionName = "1.10.3"
+// Jiangshi's own version. versionCode stays Yokai's so upstream migrations still run.
+val jiangshiVersion = "0.1.1"
 val betaCount by lazy {
     val betaTags = runCommand("git tag -l --sort=refname v${_versionName}-b*")
 
@@ -45,13 +47,14 @@ val buildTime: String by lazy {
     LocalDateTime.now(ZoneOffset.UTC).format(df)
 }
 
-val supportedAbis = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+// Jiangshi: only build for arm64 phones. Add ABIs back here if another device needs it.
+val supportedAbis = setOf("arm64-v8a")
 
 android {
     defaultConfig {
         applicationId = "eu.kanade.tachiyomi"
         versionCode = 162
-        versionName = _versionName
+        versionName = jiangshiVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true
 
@@ -59,6 +62,7 @@ android {
         buildConfigField("String", "BETA_COUNT", "\"${betaCount}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${commitHash}\"")
         buildConfigField("String", "BUILD_TIME", "\"${buildTime}\"")
+        buildConfigField("String", "UPSTREAM_VERSION", "\"${_versionName}\"")
         buildConfigField("Boolean", "INCLUDE_UPDATER", "false")
         buildConfigField("Boolean", "BETA", "false")
         buildConfigField("Boolean", "NIGHTLY", "false")
@@ -72,7 +76,8 @@ android {
 
     splits {
         abi {
-            isEnable = true
+            // Jiangshi: one ABI, so a single APK (ndk abiFilters) instead of splits
+            isEnable = false
             reset()
             // False positive, we have x86 abi support
             //noinspection ChromeOsAbiSupport
@@ -81,13 +86,25 @@ android {
         }
     }
 
+    // Release signing key, configured in ~/.gradle/gradle.properties (never commit it)
+    val jiangshiStoreFile = findProperty("JIANGSHI_STORE_FILE") as String?
+    if (jiangshiStoreFile != null) {
+        signingConfigs.create("jiangshi") {
+            storeFile = file(jiangshiStoreFile)
+            storePassword = findProperty("JIANGSHI_STORE_PASSWORD") as String
+            keyAlias = findProperty("JIANGSHI_KEY_ALIAS") as String
+            keyPassword = findProperty("JIANGSHI_KEY_PASSWORD") as String
+        }
+    }
+
     buildTypes {
         getByName("debug") {
-            applicationIdSuffix = ".debugYokai"
+            applicationIdSuffix = ".debugJiangshi"
             versionNameSuffix = "-d${commitCount}"
         }
         getByName("release") {
-            applicationIdSuffix = ".yokai"
+            applicationIdSuffix = ".jiangshi"
+            signingConfig = signingConfigs.findByName("jiangshi")
             isShrinkResources = true
             isMinifyEnabled = true
             proguardFiles("proguard-android-optimize.txt", "proguard-rules.pro")
@@ -107,7 +124,7 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks.add("release")
             versionNameSuffix = "-r${commitCount}"
-            applicationIdSuffix = ".nightlyYokai"
+            applicationIdSuffix = ".nightlyJiangshi"
         }
     }
 
@@ -133,6 +150,18 @@ android {
             resourceConfigurations.clear()
             resourceConfigurations.add("en")
             dimension = "default"
+        }
+    }
+
+    // Name APKs like jiangshi-v0.1.1-arm64-v8a.apk; non-release builds get a build type suffix
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val abi = filters.find { it.filterType == "ABI" }?.identifier
+                ?: supportedAbis.singleOrNull() ?: "universal"
+            val suffix = if (variant.buildType.name == "release") "" else "-${variant.buildType.name}"
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+                "jiangshi-v${variant.versionName}-$abi$suffix.apk"
         }
     }
 

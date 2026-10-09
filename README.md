@@ -7,7 +7,8 @@ Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai ba
 ## Changes from Yōkai
 
 * **Per-source reading mode**: set a default reading mode for each source in its extension settings. Sources without one use the global default.
-* **No telemetry**: Firebase, Crashlytics and analytics are switched off, and the crash report toggle is gone.
+* **No telemetry**: Firebase, Crashlytics and analytics are switched off, and the crash report toggle is gone. The Firebase Gradle plugins aren't applied, so builds don't need a `google-services.json`.
+* **No in-app updater**: Yōkai's updater would offer Yōkai releases, so it's disabled in every flavor.
 * **Suwayomi tracking**: works with newer Suwayomi servers that leave `meta` out of REST responses.
 * **Branding**: new name, icons and application IDs (`.jiangshi`, `.debugJiangshi`, `.nightlyJiangshi`), so it installs alongside Yōkai.
 * **Leaner build**: arm64-v8a only, one APK named `jiangshi-v<version>-arm64-v8a.apk`.
@@ -40,6 +41,8 @@ If these aren't set, the release build is left unsigned.
 `versionName` is Jiangshi's own version (`jiangshiVersion` in `app/build.gradle.kts`). `versionCode` follows Yōkai so its migrations keep running after an upgrade.
 
 ## Syncing with Yōkai
+
+This repo is a GitHub fork of Yōkai. Jiangshi's changes live on `main`, and `master` is Yōkai's branch.
 
 ```sh
 git remote add upstream https://github.com/null2264/yokai.git   # once

@@ -138,7 +138,7 @@ android {
 
     productFlavors {
         create("standard") {
-            // Jiangshi: the updater checks Yokai's releases, and can't read this private repo
+            // Jiangshi: the updater checks Yokai's releases, not Jiangshi's
             buildConfigField("Boolean", "INCLUDE_UPDATER", "false")
             dimension = "default"
         }

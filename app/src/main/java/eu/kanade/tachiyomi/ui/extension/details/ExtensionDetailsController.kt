@@ -258,23 +258,6 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
 
         screen.switchPreference(block)
 
-        val sourceReadingMode = preferences.sourceReadingMode(source.id)
-        prefs += screen.listPreference(activity) {
-            key = sourceReadingMode.key()
-            titleMRes = MR.strings.default_reading_mode
-            entriesRes = ReadingModeType.entries.map { it.stringRes }.toTypedArray()
-            entryValues = ReadingModeType.entries.map { it.flagValue.toString() }
-            // Stored in app preferences rather than the extension's data store
-            isPersistent = false
-            preferenceStore = sourceReadingMode
-            isIconSpaceReserved = true
-            isVisible = source.isEnabled()
-            onChange {
-                sourceReadingMode.set((it as String).toInt())
-                true
-            }
-        }
-
         if (source is ConfigurableSource) {
             val newScreen = screen.preferenceManager.createPreferenceScreen(context)
             source.setupPreferenceScreen(newScreen)
@@ -299,6 +282,24 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
                 prefs.add(pref)
                 newScreen.removePreference(pref)
                 screen.addPreference(pref)
+            }
+        }
+
+        // After the extension's own settings, so they stay at the top
+        val sourceReadingMode = preferences.sourceReadingMode(source.id)
+        prefs += screen.listPreference(activity) {
+            key = sourceReadingMode.key()
+            titleMRes = MR.strings.default_reading_mode
+            entriesRes = ReadingModeType.entries.map { it.stringRes }.toTypedArray()
+            entryValues = ReadingModeType.entries.map { it.flagValue.toString() }
+            // Stored in app preferences rather than the extension's data store
+            isPersistent = false
+            preferenceStore = sourceReadingMode
+            isIconSpaceReserved = true
+            isVisible = source.isEnabled()
+            onChange {
+                sourceReadingMode.set((it as String).toInt())
+                true
             }
         }
     }

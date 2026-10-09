@@ -73,7 +73,6 @@ import org.koin.core.context.startKoin
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import yokai.core.CrashlyticsLogWriter
 import yokai.core.RollingUniFileLogWriter
 import yokai.core.di.appModule
 import yokai.core.di.domainModule
@@ -332,8 +331,8 @@ fun buildLogWritersToAdd(logPath: UniFile?): List<LogWriter> {
 fun buildLogWritersToAdd(
     logPath: UniFile?,
     isVerbose: Boolean,
-) = buildList {
-    if (!BuildConfig.DEBUG) add(CrashlyticsLogWriter())
+) = buildList<LogWriter> {
+    // Jiangshi: Firebase is disabled, so don't forward logs to Crashlytics
 
  //   if (logPath != null && !BuildConfig.DEBUG) add(RollingUniFileLogWriter(logPath = logPath, isVerbose = isVerbose))
 }

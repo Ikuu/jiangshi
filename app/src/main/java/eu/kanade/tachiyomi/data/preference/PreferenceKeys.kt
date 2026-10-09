@@ -40,6 +40,8 @@ object PreferenceKeys {
 
     const val defaultReadingMode = "pref_default_reading_mode_key"
 
+    fun sourceReadingMode(sourceId: Long) = "pref_source_reading_mode_$sourceId"
+
     const val defaultOrientationType = "pref_default_orientation_type_key"
 
     const val imageScaleType = "pref_image_scale_type_key"

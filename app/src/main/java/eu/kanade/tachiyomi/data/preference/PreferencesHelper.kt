@@ -97,6 +97,13 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun defaultReadingMode() = preferenceStore.getInt(Keys.defaultReadingMode, ReadingModeType.RIGHT_TO_LEFT.flagValue)
 
+    fun sourceReadingMode(sourceId: Long) = preferenceStore.getInt(Keys.sourceReadingMode(sourceId), ReadingModeType.DEFAULT.flagValue)
+
+    /** Reading mode for [sourceId] if set in its extension settings, otherwise the global default. */
+    fun defaultReadingMode(sourceId: Long): Int =
+        sourceReadingMode(sourceId).get().takeIf { it != ReadingModeType.DEFAULT.flagValue }
+            ?: defaultReadingMode().get()
+
     fun defaultOrientationType() = preferenceStore.getInt(Keys.defaultOrientationType, OrientationType.FREE.flagValue)
 
     fun imageScaleType() = preferenceStore.getInt(Keys.imageScaleType, 1)

@@ -732,8 +732,8 @@ class ReaderViewModel(
      * Returns the viewer position used by this manga or the default one.
      */
     fun getMangaReadingMode(): Int {
-        val default = preferences.defaultReadingMode().get()
-        val manga = manga ?: return default
+        val manga = manga ?: return preferences.defaultReadingMode().get()
+        val default = preferences.defaultReadingMode(manga.source)
         val readerType = manga.defaultReaderType()
         if (manga.viewer_flags == -1) {
             val cantSwitchToLTR =

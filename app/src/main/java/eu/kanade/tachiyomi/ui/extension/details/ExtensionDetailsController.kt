@@ -36,10 +36,13 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.ui.base.controller.BaseCoroutineController
+import eu.kanade.tachiyomi.ui.reader.settings.ReadingModeType
 import eu.kanade.tachiyomi.ui.setting.DSL
 import eu.kanade.tachiyomi.ui.setting.defaultValue
+import eu.kanade.tachiyomi.ui.setting.listPreference
 import eu.kanade.tachiyomi.ui.setting.onChange
 import eu.kanade.tachiyomi.ui.setting.switchPreference
+import eu.kanade.tachiyomi.ui.setting.titleMRes
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.view.openInBrowser
 import eu.kanade.tachiyomi.util.view.scrollViewWith
@@ -254,6 +257,24 @@ class ExtensionDetailsController(bundle: Bundle? = null) :
         }
 
         screen.switchPreference(block)
+
+        val sourceReadingMode = preferences.sourceReadingMode(source.id)
+        prefs += screen.listPreference(activity) {
+            key = sourceReadingMode.key()
+            titleMRes = MR.strings.default_reading_mode
+            entriesRes = ReadingModeType.entries.map { it.stringRes }.toTypedArray()
+            entryValues = ReadingModeType.entries.map { it.flagValue.toString() }
+            // Stored in app preferences rather than the extension's data store
+            isPersistent = false
+            preferenceStore = sourceReadingMode
+            isIconSpaceReserved = true
+            isVisible = source.isEnabled()
+            onChange {
+                sourceReadingMode.set((it as String).toInt())
+                true
+            }
+        }
+
         if (source is ConfigurableSource) {
             val newScreen = screen.preferenceManager.createPreferenceScreen(context)
             source.setupPreferenceScreen(newScreen)

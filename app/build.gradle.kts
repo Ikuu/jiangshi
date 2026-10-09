@@ -1,5 +1,3 @@
-import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsPlugin
-import com.google.gms.googleservices.GoogleServicesPlugin
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
@@ -16,10 +14,7 @@ plugins {
     alias(libs.plugins.google.services) apply false
 }
 
-if (gradle.startParameter.taskRequests.toString().contains("standard", true)) {
-    apply<CrashlyticsPlugin>()
-    apply<GoogleServicesPlugin>()
-}
+// Jiangshi: Firebase is disabled, so the Crashlytics and Google Services plugins aren't applied
 
 fun runCommand(command: String): String {
     val result = providers.exec { commandLine(command.split(" ")) }
@@ -143,7 +138,8 @@ android {
 
     productFlavors {
         create("standard") {
-            buildConfigField("Boolean", "INCLUDE_UPDATER", "true")
+            // Jiangshi: the updater checks Yokai's releases, and can't read this private repo
+            buildConfigField("Boolean", "INCLUDE_UPDATER", "false")
             dimension = "default"
         }
         create("dev") {

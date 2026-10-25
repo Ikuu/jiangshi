@@ -8,7 +8,7 @@ Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai ba
 
 * **Per-source reading mode**: set a default reading mode for each source in its extension settings. Sources without one use the global default.
 * **No telemetry**: Firebase, Crashlytics and analytics are removed from the build, along with the crash report toggle. Builds don't need a `google-services.json`.
-* **No in-app updater**: Yōkai's updater would offer Yōkai releases, so it's disabled in every flavor.
+* **Updater**: checks Jiangshi's GitHub releases instead of Yōkai's, and shows Jiangshi's release notes. Debug builds don't check.
 * **Suwayomi tracking**: works with newer Suwayomi servers that leave `meta` out of REST responses.
 * **Tracker User-Agent**: trackers see requests as coming from `Ikuu/jiangshi`, not Yōkai.
 * **Rotation in double page mode**: rotating the device no longer jumps back a page, including when the current page becomes part of a spread.
@@ -42,7 +42,16 @@ If these aren't set, the release build is left unsigned.
 
 ## Releasing
 
-Pushing a tag like `v0.1.2` runs `.github/workflows/release.yml`. It builds a signed release APK and attaches it to a GitHub release. The tag has to match `jiangshiVersion`, so bump that first.
+Pushing a tag like `jiangshi-v0.1.2` runs `.github/workflows/release.yml`. It builds a signed release APK and attaches it to a GitHub release, which the in-app updater then offers. The tag has to match `jiangshiVersion`, so bump that first. Tags have the `jiangshi-` prefix because the fork also has Yōkai's tags, and Yōkai's history already includes `v0.x` tags.
+
+The release notes are what the updater shows as the changelog. To write them yourself, use an annotated tag:
+
+```sh
+git tag -a jiangshi-v0.1.2 -m "Jiangshi 0.1.2" -m "- Fixed rotation in double page mode"
+git push origin jiangshi-v0.1.2
+```
+
+With a plain tag, the notes list Jiangshi's commits since the previous release, leaving out merges from Yōkai and `docs`, `ci`, `chore`, `style`, `test` and `refactor` commits.
 
 The workflow needs these repository secrets:
 

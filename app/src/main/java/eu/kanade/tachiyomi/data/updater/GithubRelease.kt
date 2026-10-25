@@ -14,12 +14,15 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class GithubRelease(
-    @SerialName("tag_name") val version: String,
+    @SerialName("tag_name") private val tagName: String,
     @SerialName("body") val info: String,
     @SerialName("html_url") val releaseLink: String,
     @SerialName("prerelease") val preRelease: Boolean?,
     @SerialName("assets") private val assets: List<Assets>,
 ) {
+
+    val version: String
+        get() = tagName.removePrefix(RELEASE_TAG_PREFIX)
 
     /**
      * Get download link of latest release from the assets.
@@ -35,7 +38,7 @@ data class GithubRelease(
                 else -> ""
             }
 
-            return assets.find { it.downloadLink.contains("yokai$apkVariant-") }?.downloadLink
+            return assets.find { it.downloadLink.endsWith("$apkVariant.apk") }?.downloadLink
                 ?: assets[0].downloadLink
         }
 

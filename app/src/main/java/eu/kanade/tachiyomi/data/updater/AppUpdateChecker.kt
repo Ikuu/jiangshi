@@ -94,20 +94,18 @@ class AppUpdateChecker(
         }
 }
 
+// Jiangshi: release tags are prefixed so they can't clash with Yokai's v* tags, which the fork also has
+const val RELEASE_TAG_PREFIX = "jiangshi-"
+
 val RELEASE_TAG: String by lazy {
     if (BuildConfig.NIGHTLY) {
         "r${BuildConfig.COMMIT_COUNT}"
     } else {
-        "v${BuildConfig.VERSION_NAME}"
+        "${RELEASE_TAG_PREFIX}v${BuildConfig.VERSION_NAME}"
     }
 }
 
-val GITHUB_REPO: String by lazy {
-    if (BuildConfig.NIGHTLY) {
-        "null2264/yokai-nightly"
-    } else {
-        "null2264/yokai"
-    }
-}
+// Jiangshi: check Jiangshi's releases, not Yokai's
+const val GITHUB_REPO = "Ikuu/jiangshi"
 
 val RELEASE_URL = "https://github.com/$GITHUB_REPO/releases/tag/$RELEASE_TAG"

@@ -94,6 +94,8 @@ android {
         getByName("debug") {
             applicationIdSuffix = ".debugJiangshi"
             versionNameSuffix = "-d${commitCount}"
+            // Jiangshi: debug versions can't be compared with releases, and an update would install the release app
+            buildConfigField("Boolean", "INCLUDE_UPDATER", "false")
         }
         getByName("release") {
             applicationIdSuffix = ".jiangshi"
@@ -136,8 +138,8 @@ android {
 
     productFlavors {
         create("standard") {
-            // Jiangshi: the updater checks Yokai's releases, not Jiangshi's
-            buildConfigField("Boolean", "INCLUDE_UPDATER", "false")
+            // Jiangshi: the updater checks Jiangshi's GitHub releases
+            buildConfigField("Boolean", "INCLUDE_UPDATER", "true")
             dimension = "default"
         }
         create("dev") {

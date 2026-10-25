@@ -10,11 +10,9 @@ plugins {
     alias(kotlinx.plugins.parcelize)
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.aboutlibraries.android)
-    alias(libs.plugins.firebase.crashlytics) apply false
-    alias(libs.plugins.google.services) apply false
 }
 
-// Jiangshi: Firebase is disabled, so the Crashlytics and Google Services plugins aren't applied
+// Jiangshi: Firebase is removed, so the Crashlytics and Google Services plugins aren't applied
 
 fun runCommand(command: String): String {
     val result = providers.exec { commandLine(command.split(" ")) }
@@ -192,11 +190,6 @@ dependencies {
 
     // Android X libraries
     implementation(androidx.bundles.androidx)
-
-    implementation(platform(libs.firebase))
-
-    implementation(libs.firebase.analytics)
-    implementation(libs.firebase.crashlytics)
 
     // ReactiveX
     implementation(libs.rxandroid)

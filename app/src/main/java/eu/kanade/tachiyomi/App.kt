@@ -36,8 +36,6 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.allowRgb565
 import coil3.request.crossfade
 import coil3.util.DebugLogger
-import com.google.firebase.crashlytics.ktx.crashlytics
-import com.google.firebase.ktx.Firebase
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.appwidget.TachiyomiWidgetManager
 import eu.kanade.tachiyomi.core.preference.Preference
@@ -122,16 +120,6 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
             .onEach { enabled ->
                 // FlexibleAdapter.enableLogs(if (enabled) Level.VERBOSE else Level.SUPPRESS)
                 Logger.setToDefault(buildLogWritersToAdd(storageManager.getLogsDirectory(), enabled))
-            }
-            .launchIn(scope)
-
-        basePreferences.crashReport().changes()
-            .onEach {
-                try {
-                    Firebase.crashlytics.setCrashlyticsCollectionEnabled(it)
-                } catch (e: Exception) {
-                    // Probably already enabled/disabled
-                }
             }
             .launchIn(scope)
 
@@ -332,7 +320,7 @@ fun buildLogWritersToAdd(
     logPath: UniFile?,
     isVerbose: Boolean,
 ) = buildList<LogWriter> {
-    // Jiangshi: Firebase is disabled, so don't forward logs to Crashlytics
+    // Jiangshi: Firebase is removed, so there's no Crashlytics log writer
 
  //   if (logPath != null && !BuildConfig.DEBUG) add(RollingUniFileLogWriter(logPath = logPath, isVerbose = isVerbose))
 }

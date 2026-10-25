@@ -45,15 +45,6 @@
         android:theme="@style/Theme.Tachiyomi"
         android:networkSecurityConfig="@xml/network_security_config">
 
-        <!-- Jiangshi: never start Firebase, so no crash reports or analytics are sent to Yokai -->
-        <provider
-            android:name="com.google.firebase.provider.FirebaseInitProvider"
-            android:authorities="${applicationId}.firebaseinitprovider"
-            tools:node="remove" />
-        <meta-data android:name="firebase_crashlytics_collection_enabled" android:value="false" />
-        <meta-data android:name="firebase_analytics_collection_deactivated" android:value="true" />
-        <meta-data android:name="firebase_sessions_enabled" android:value="false" />
-
         <activity
             android:process=":error_handler"
             android:name=".ui.crash.CrashActivity"

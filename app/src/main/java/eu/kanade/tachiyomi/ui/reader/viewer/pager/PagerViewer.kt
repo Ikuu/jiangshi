@@ -85,6 +85,13 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
      * */
     var heldForwardZoom: Pair<Int, Boolean>? = null
 
+    /**
+     * Page last targeted by [moveToPage] (e.g. restoring after rotation), cleared once the user
+     * navigates. Used to stay on this page when the double page layout is rebuilt because a
+     * spread was detected, instead of falling back to the page it was paired with.
+     */
+    var pendingRequestedPage: ReaderPage? = null
+
     private var pagerListener = object : ViewPager.SimpleOnPageChangeListener() {
         override fun onPageSelected(position: Int) {
             if (pager.isRestoring) return
@@ -97,6 +104,9 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
 
         override fun onPageScrollStateChanged(state: Int) {
             isIdle = state == ViewPager.SCROLL_STATE_IDLE
+            if (state == ViewPager.SCROLL_STATE_DRAGGING) {
+                pendingRequestedPage = null
+            }
             if (!hasMoved) {
                 hasMoved = !isIdle
             }
@@ -375,6 +385,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
                     )
         }
         if (position != -1) {
+            pendingRequestedPage = page
             val currentPosition = pager.currentItem
             pager.setCurrentItem(position, animated)
             // manually call onPageChange since ViewPager listener is not triggered in this case
@@ -408,6 +419,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
     protected open fun moveRight() {
         if (pager.currentItem != adapter.count - 1) {
             hasMoved = true
+            pendingRequestedPage = null
             val holder = (currentPage as? ReaderPage)?.let { getPageHolder(it) }
             if (holder != null && config.navigateToPan && holder.canPanRight()) {
                 holder.panRight()
@@ -423,6 +435,7 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
     protected open fun moveLeft() {
         if (pager.currentItem != 0) {
             hasMoved = true
+            pendingRequestedPage = null
             val holder = (currentPage as? ReaderPage)?.let { getPageHolder(it) }
             if (holder != null && config.navigateToPan && holder.canPanLeft()) {
                 holder.panLeft()

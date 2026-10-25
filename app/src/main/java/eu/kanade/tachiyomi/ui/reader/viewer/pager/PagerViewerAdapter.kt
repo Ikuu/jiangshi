@@ -176,6 +176,13 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
 
     fun splitDoublePages(current: ReaderPage) {
         val oldCurrent = joinedItems.getOrNull(viewer.pager.currentItem)
+        // If the viewer was sent to a specific page that is part of the current item (e.g. after
+        // rotating), stay on it rather than the page it happened to be paired with
+        val pageToKeep = viewer.pendingRequestedPage?.takeIf { pending ->
+            viewer.config.doublePages && listOfNotNull(oldCurrent?.first, oldCurrent?.second).any {
+                (it as? ReaderPage)?.isFromSamePage(pending) == true
+            }
+        }
         setJoinedItems(
             if (viewer.config.splitPages) {
                 (oldCurrent?.first as? ReaderPage)?.firstHalf == false
@@ -184,6 +191,7 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
                     (current.index + 1) <
                     (((oldCurrent?.second ?: oldCurrent?.first) as? ReaderPage)?.index ?: 0)
             },
+            pageToKeep,
         )
 
         // The listener may be removed when we split a page, so the ui may not have updated properly
@@ -194,7 +202,7 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
         }
     }
 
-    private fun setJoinedItems(useSecondPage: Boolean = false) {
+    private fun setJoinedItems(useSecondPage: Boolean = false, pageToKeep: ReaderPage? = null) {
         val oldCurrent = joinedItems.getOrNull(viewer.pager.currentItem)
         if (!viewer.config.doublePages) {
             // If not in double mode, set up items like before
@@ -352,6 +360,7 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
             when {
                 (oldCurrent?.first as? ReaderPage)?.chapter != currentChapter &&
                     (oldCurrent?.first as? ChapterTransition)?.from != currentChapter -> subItems.find { (it as? ReaderPage)?.chapter == currentChapter }
+                pageToKeep != null -> pageToKeep
                 useSecondPage && oldCurrent?.second is ReaderPage -> (oldCurrent.second ?: oldCurrent.first)
                 else -> oldCurrent?.first ?: return
             }

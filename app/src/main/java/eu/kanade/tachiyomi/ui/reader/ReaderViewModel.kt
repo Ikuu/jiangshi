@@ -520,6 +520,10 @@ class ReaderViewModel(
 
         val selectedChapter = page.chapter
 
+        // Keep track of the page on screen so the viewer can restore it after a config change
+        // (e.g. rotation). Set synchronously and regardless of incognito/tracking.
+        selectedChapter.requestedPage = page.index
+
         // Save last page read and mark as read if needed
         viewModelScope.launchNonCancellableIO {
             saveChapterProgress(selectedChapter, page, hasExtraPage)
@@ -622,7 +626,6 @@ class ReaderViewModel(
      * If incognito mode isn't on or has at least 1 tracker
      */
     private suspend fun saveChapterProgress(readerChapter: ReaderChapter, page: ReaderPage, hasExtraPage: Boolean) {
-        readerChapter.requestedPage = readerChapter.chapter.last_page_read
         getChapter.awaitById(readerChapter.chapter.id!!)?.let { dbChapter ->
             readerChapter.chapter.bookmark = dbChapter.bookmark
         }

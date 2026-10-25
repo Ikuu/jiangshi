@@ -307,8 +307,6 @@
     <string name="show_in_sources_and_extensions">स्रोत र एक्सटेन्शन सूची मा देखाउनुहोस्</string>
     <string name="does_not_prevent_unofficial_nsfw">यसले अनौपचारिक वा सम्भावित रूपमा गलत रूपमा फ्ल्याग गरिएका एक्सटेन्शनहरूलाई एप भित्र NSFW (१८+) सामग्री आउन बाट रोक्दैन।</string>
     <string name="version">संस्करण</string>
-    <string name="send_crash_report">क्र्यास रिपोर्टहरू पठाउनुहोस्</string>
-    <string name="helps_fix_bugs">कुनै पनि बगहरू ठीक गर्न मद्दत गर्दछ। कुनै संवेदनशील डेटा पठाइने छैन</string>
     <string name="whats_new">नयाँ के छ</string>
     <string name="faq_and_guides">बारम्बार सोधिएका प्रश्न उत्तर र गाइडहरू</string>
     <string name="help_translate">अनुवाद गर्न मद्दत गर्नुहोस्</string>

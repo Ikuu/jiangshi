@@ -170,8 +170,6 @@
     <string name="version">版本</string>
     <string name="build_time">构建时间</string>
     <string name="check_for_updates">检查更新</string>
-    <string name="send_crash_report">发送错误数据</string>
-    <string name="helps_fix_bugs">帮助我们修复bug。不会发送个人信息</string>
     <string name="log_in_to_">登录到%1$s</string>
     <string name="username">用户名</string>
     <string name="password">密码</string>

@@ -55,7 +55,6 @@
     <string name="download_location">Letöltések könyvtára</string>
     <string name="backup">Biztonsági mentés</string>
     <string name="version">Verzió</string>
-    <string name="send_crash_report">Összeomlás-jelentések küldése</string>
     <string name="completed">Befejezett</string>
     <string name="dropped">Dobott</string>
     <string name="plan_to_read">Tervezett</string>
@@ -492,7 +491,6 @@
     <string name="dump_crash_logs">Hibaüzenetetek törlése</string>
     <string name="saves_error_logs">Feljegyzi a hibát egy fájlba, hogy meg lehessen osztani a fejlesztővel</string>
     <string name="network">Hálózat</string>
-    <string name="helps_fix_bugs">Segít a hibák javításában. Semmilyen bizalmas információ nem lesz elküldve</string>
     <string name="new_chapters_found">Új fejezet</string>
     <string name="clear_history">Előzmények törlése</string>
     <string name="theres_no_previous_chapter">Nincs előző fejezet</string>

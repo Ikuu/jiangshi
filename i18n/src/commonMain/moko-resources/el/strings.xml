@@ -170,8 +170,6 @@
     <string name="version">Έκδοση</string>
     <string name="build_time">Χρόνος κατασκευής</string>
     <string name="check_for_updates">Έλεγχος για ενημερώσεις</string>
-    <string name="send_crash_report">Αποστολή αναφορών σφαλμάτων</string>
-    <string name="helps_fix_bugs">Βοηθά στην επιδιόρθωση τυχόν σφαλμάτων. Δε θα αποστέλλονται ευαίσθητα δεδομένα</string>
     <string name="log_in_to_">Σύνδεση για %1$s</string>
     <string name="username">Όνομα χρήστη</string>
     <string name="password">Κωδικός πρόσβασης</string>

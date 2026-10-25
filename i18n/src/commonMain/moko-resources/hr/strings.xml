@@ -25,8 +25,6 @@
     <string name="check_for_extension_updates">Traži nove verzije proširenja</string>
     <string name="version">Verzija</string>
     <string name="build_time">Datum izdanja</string>
-    <string name="send_crash_report">Pošalji izvještaj o padu programa</string>
-    <string name="helps_fix_bugs">Pomaže pri ispravljanju grešaka. Ne šalju se nikoji privatni podaci</string>
     <string name="website">Web-stranica</string>
     <string name="open_source_licenses">Licence otvorenog koda</string>
     <string name="log_in_to_">Prijavi se na %1$s</string>

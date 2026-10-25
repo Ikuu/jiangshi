@@ -135,8 +135,6 @@
     <string name="build_time">Време на създаване</string>
     <string name="check_for_updates">Провери за актуализации</string>
     <!-- ACRA -->
-    <string name="send_crash_report">Изпращай данни за грешки</string>
-    <string name="helps_fix_bugs">Помага за оправянето на бъгове. Няма да се изпращат лични данни</string>
     <!-- Login dialog -->
     <string name="log_in_to_">Влизане в %1$s</string>
     <string name="username">Потребителско име</string>

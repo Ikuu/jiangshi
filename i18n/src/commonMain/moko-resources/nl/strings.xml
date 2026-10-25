@@ -188,8 +188,6 @@
     <string name="updates_covers_genres_desc">Update omslagen, genres, beschrijvingen en status van manga</string>
     <string name="refresh_tracking_metadata">Bijwerken van tracking metadata</string>
     <string name="build_time">Gecompileerd op</string>
-    <string name="send_crash_report">Rapporteer bugs</string>
-    <string name="helps_fix_bugs">Helpt bij het bestrijden van bugs. Geen gevoelige data wordt verzonden</string>
     <string name="no_recently_read_manga">Geen recentelijk gelezen manga</string>
     <string name="could_not_download_unexpected_error">Er is een onverwachte fout opgetreden bij het downloaden van het hoofdstuk</string>
     <string name="clear">Legen</string>

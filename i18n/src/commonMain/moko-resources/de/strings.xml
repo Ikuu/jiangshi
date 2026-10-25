@@ -408,8 +408,6 @@
     <!-- About section -->
     <string name="version">Version</string>
     <string name="build_time">Erstellt am</string>
-    <string name="send_crash_report">Fehlerberichte senden</string>
-    <string name="helps_fix_bugs">Hilft Fehler zu beheben. Keine sensiblen Daten werden gesendet</string>
     <string name="whats_new">Was ist neu</string>
     <string name="website">Webseite</string>
     <string name="open_source_licenses">Open-Source-Lizenzen</string>

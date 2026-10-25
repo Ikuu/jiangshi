@@ -174,7 +174,6 @@
     <string name="password">Пароль</string>
     <string name="picture_saved">Картинка сохранена</string>
     <string name="plan_to_read">Запланировано</string>
-    <string name="helps_fix_bugs">Помогает исправлять все возможные баги. Личные данные не передаются</string>
     <string name="backup_location">Папка резервной копии</string>
     <string name="backup_frequency">Частота резервной копии</string>
     <string name="max_auto_backups">Максимальное количество резервных копии</string>
@@ -202,7 +201,6 @@
     <string name="download_new_chapters">Загружать новые главы</string>
     <string name="categories_to_include_in_download">Категории для включения в загрузку</string>
     <string name="only_download_over_wifi">Загружать только через Wi-Fi</string>
-    <string name="send_crash_report">Отсылать отчеты о падениях</string>
     <string name="check_for_updates">Проверить обновления</string>
     <string name="fullscreen">Полноэкранный режим</string>
     <string name="scale_type">Масштабирование</string>

@@ -159,8 +159,6 @@
     <string name="source_migration_guide">Šaltinio perkėlimo vadovas</string>
     <string name="does_not_prevent_unofficial_nsfw">Tai nesustabdo neoficialių ar potencialiai neteisingai pažymėtų plėtinių nuo N18+ turinio rodymo programoje.</string>
     <string name="version">Versija</string>
-    <string name="send_crash_report">Siųsti strigčių ataskaitas</string>
-    <string name="helps_fix_bugs">Padeda ištaisyti bet kokias klaidas. Skelbtini duomenys nebus siunčiami</string>
     <string name="whats_new">Kas naujo</string>
     <string name="faq_and_guides">DUK ir vadovai</string>
     <string name="help_translate">Padėkite išversti programa</string>

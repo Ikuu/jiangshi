@@ -153,8 +153,6 @@
     <string name="version">Versi</string>
     <string name="build_time">Waktu pembuatan</string>
     <string name="check_for_updates">Periksa pembaruan</string>
-    <string name="send_crash_report">Kirim laporan kerusakan</string>
-    <string name="helps_fix_bugs">Bantu memperbaiki bug. Tidak ada data sensitif yang akan dikirim</string>
     <string name="log_in_to_">Masuk ke %1$s</string>
     <string name="username">Nama pengguna</string>
     <string name="password">Kata sandi</string>

@@ -453,8 +453,6 @@
     <string name="pref_hide_threshold">Sensibilidade para ocultar o menú ao desprazarse</string>
     <string name="battery_optimization_disabled">A optimización de batería xa está desactivada</string>
     <string name="source_migration_guide">Guía de migración de fontes</string>
-    <string name="send_crash_report">Enviar informes de erros</string>
-    <string name="helps_fix_bugs">Axuda a corrixir os erros. Non se enviará ningunha información sensíbel</string>
     <string name="whats_new">Novidades</string>
     <string name="open_source_licenses">Licenzas de código aberto</string>
     <string name="log_in_to_">Iniciar sesión en %1$s</string>

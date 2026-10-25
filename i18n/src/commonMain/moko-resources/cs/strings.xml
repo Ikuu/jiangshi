@@ -209,8 +209,6 @@
     <string name="version">Verze</string>
     <string name="build_time">Čas sestavení</string>
     <string name="check_for_updates">Zkontrolovat aktualizace</string>
-    <string name="send_crash_report">Odesílat hlášení o pádu</string>
-    <string name="helps_fix_bugs">Pomáhá opravit chyby. Nebudou odeslány žádné citlivé údaje</string>
     <string name="local">Lokální</string>
     <string name="search_filters">Filtry vyhledávání</string>
     <string name="local_source">Lokální zdroj</string>

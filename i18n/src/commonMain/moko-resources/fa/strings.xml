@@ -163,8 +163,6 @@
     <string name="disable_battery_optimization">غیر فعال کردن بهینه سازی باتری</string>
     <string name="pref_global_search">جست و جوی کامل</string>
     <string name="check_for_extension_updates">بررسی برای به افزونه‌های آپدیت‌شده</string>
-    <string name="send_crash_report">ارسال گزارش های خرابی</string>
-    <string name="helps_fix_bugs">به رفع اشکالات برنامه کمک می کند. هیچ گونه داده حساسی ارسال نخواهد شد</string>
     <string name="open_source_licenses">مجوزهای منبع باز</string>
     <string name="log_in_to_">ورود به %1$s</string>
     <string name="successfully_logged_out">شما خارج شدید</string>

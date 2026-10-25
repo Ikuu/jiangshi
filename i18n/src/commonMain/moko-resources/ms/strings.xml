@@ -153,8 +153,6 @@
     <string name="version">Versi</string>
     <string name="build_time">Masa binaan aplikasi</string>
     <string name="check_for_updates">Semak untuk kemas kini</string>
-    <string name="send_crash_report">Hantar laporan ranap</string>
-    <string name="helps_fix_bugs">Bantu membaiki aplikasi. Tiada data sensitif dihantar</string>
     <string name="log_in_to_">Log masuk untuk %1$s</string>
     <string name="username">Nama pengguna</string>
     <string name="password">Kata laluan</string>

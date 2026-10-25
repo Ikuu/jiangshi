@@ -264,8 +264,6 @@
     <string name="show_in_sources_and_extensions">הצג ברשימות מקורות ותוספים</string>
     <string name="does_not_prevent_unofficial_nsfw">זה לא מונע תוספים לא רשמיים או תוספים שעלולים לסמן באופן שגוי מלהציג תוכן NSFW (18+) בתוך האפליקציה.</string>
     <string name="version">גרסה</string>
-    <string name="send_crash_report">שלח דוחות קריסה</string>
-    <string name="helps_fix_bugs">עוזר בתיקון באגים. לא יישלחו נתונים רגישים</string>
     <string name="whats_new">מה חדש</string>
     <string name="faq_and_guides">שו\"ת ומדריכים</string>
     <string name="help_translate">עזור לתרגם</string>

@@ -274,7 +274,6 @@
     <string name="clear_database">Notīrīt datu bāzi</string>
     <string name="show_in_sources_and_extensions">Rādīt avotos un paplašinājumu sarakstos</string>
     <string name="does_not_prevent_unofficial_nsfw">Šis neliedz neoficiāliem vai, iespējams, nepareizi atzīmētiem paplašinājumiem parādīties NSFW (18+) saturu lietotnē.</string>
-    <string name="send_crash_report">Sūtīt avārijas ziņojumus</string>
     <string name="true_32bit_color">32-bit krāsa</string>
     <string name="free">Brīvs</string>
     <string name="default_reading_mode">Noklusējuma lasīšanas režīms</string>
@@ -444,7 +443,6 @@
     <string name="previous_page">Iepriekšējā lapa</string>
     <string name="no_match_found">Neizdevās atrast</string>
     <string name="progress">Progress</string>
-    <string name="helps_fix_bugs">Palīdz novērst jebkādas problēmas. Sensitīvi dati netiks nosūtīti</string>
     <string name="log_out_from_">Izrakstīties no %1$s?</string>
     <string name="global_search">Globālā meklēšana…</string>
     <string name="last_used">Pēdējo reizi izmantots</string>

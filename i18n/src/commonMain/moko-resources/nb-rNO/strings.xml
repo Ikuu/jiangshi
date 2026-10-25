@@ -171,8 +171,6 @@
     <string name="version">Versjon</string>
     <string name="build_time">Byggtid</string>
     <string name="check_for_updates">Se etter oppdateringer</string>
-    <string name="send_crash_report">Send kræsjrapporter</string>
-    <string name="helps_fix_bugs">Hjelper til med fiksing av feil. Ingen sensitiv data vil bli sendt.</string>
     <string name="log_in_to_">Innlogging for %1$s</string>
     <string name="username">Brukernavn</string>
     <string name="password">Passord</string>

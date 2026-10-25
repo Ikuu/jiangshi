@@ -173,8 +173,6 @@
     <string name="migrate">მიგრაცია</string>
     <string name="secure_screen">უსაფრთხოების ფანჯარა</string>
     <string name="clear_cookies">Cookie -ების გასუფთავება</string>
-    <string name="helps_fix_bugs">ეხმარება შეცდომების გამოსწორებაში. სენსიტიური მონაცემები არ იქნება გაგზავნილი</string>
-    <string name="send_crash_report">ქრეშის რეპორტის გაგზავნა</string>
     <string name="downloading_progress">მიმდინარეობს გადმოწერა (%1$d/%2$d)</string>
     <string name="select_cover_image">ამოირჩიე ყდის სურათი</string>
     <string name="create">შექმნა</string>

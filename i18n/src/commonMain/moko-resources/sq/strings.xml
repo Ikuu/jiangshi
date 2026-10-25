@@ -154,7 +154,6 @@
     <string name="pure_black_dark_mode">E zezë e pastër modaliteti i errët</string>
     <string name="invalid_backup_file">Skedar rezervë i pavlefshëm</string>
     <string name="fit_screen">Ekran i përshtatshëm</string>
-    <string name="helps_fix_bugs">Ndihmon në rregullimin e çdo defekti. Nuk do të dërgohen të dhëna sensitive</string>
     <string name="original_size">Madhësia origjinale</string>
     <string name="help">Ndihmë</string>
     <string name="next_chapter">Kapitulli tjetër</string>
@@ -245,7 +244,6 @@
     <string name="about">Rreth</string>
     <string name="alphabetically">Sipas alfabetit</string>
     <string name="undo">Zhbëj</string>
-    <string name="send_crash_report">Dërgoni raporte përplasjesh</string>
     <string name="local">Lokale</string>
     <string name="services">Shërbimet</string>
     <string name="date_added">Data e shtimit</string>

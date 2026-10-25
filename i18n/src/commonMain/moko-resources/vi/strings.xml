@@ -134,8 +134,6 @@
     <string name="build_time">Thời gian tạo</string>
     <string name="check_for_updates">Kiểm tra cập nhật</string>
     <!-- ACRA -->
-    <string name="send_crash_report">Gửi báo cáo lỗi</string>
-    <string name="helps_fix_bugs">Giúp đỡ sửa lỗi. Sẽ không có thông tin nhạy cảm nào được gửi đi</string>
     <!-- Login dialog -->
     <string name="log_in_to_">Đăng nhập vào %1$s</string>
     <string name="username">Tên đăng nhập</string>

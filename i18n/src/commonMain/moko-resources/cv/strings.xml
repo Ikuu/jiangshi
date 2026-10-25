@@ -119,8 +119,6 @@
     <string name="started">Пуҫланӑ</string>
     <string name="type">Тӗс</string>
     <string name="refresh_tracking">Сӑнанӑва ҫӗнет</string>
-    <string name="send_crash_report">Ӳкнисем ҫинчен тишереревсем ямалла</string>
-    <string name="helps_fix_bugs">Кирек мӗнле йӑнӑшсене тӳрлетме пулӑшать. Нимӗнле харкам пӗлӗм те ярӑнмасть</string>
     <string name="open_source_licenses">Уҫӑ юмлӑ лиссенсисем</string>
     <string name="log_in_to_">%1$s кӗр</string>
     <string name="successfully_logged_out">Эсӗ тухрӑн</string>

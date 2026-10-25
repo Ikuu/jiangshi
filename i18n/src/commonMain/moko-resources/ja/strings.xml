@@ -802,8 +802,6 @@
     <!-- About section -->
     <string name="version">バージョン</string>
     <string name="build_time">ビルド日時</string>
-    <string name="send_crash_report">クラッシュレポートを送信する</string>
-    <string name="helps_fix_bugs">バグの修正などに役立ちます。個人情報を送信しません</string>
     <string name="whats_new">更新情報</string>
     <string name="faq_and_guides">よくあるご質問とガイド</string>
     <string name="whats_new_this_release">このリリースの更新情報</string>

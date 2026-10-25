@@ -409,8 +409,6 @@
     <!-- About section -->
     <string name="version">Wersja</string>
     <string name="build_time">Data utworzenia kompilacji</string>
-    <string name="send_crash_report">Wysyłaj raporty o awariach</string>
-    <string name="helps_fix_bugs">Pomaga naprawiać błędy. Żadne wrażliwe dane nie będą wysyłane</string>
     <string name="whats_new">Co nowego</string>
     <string name="website">Strona WWW</string>
     <string name="open_source_licenses">Licencje typu open source</string>

@@ -429,8 +429,6 @@
     <!-- About section -->
     <string name="version">Versão</string>
     <string name="build_time">Data de compilação</string>
-    <string name="send_crash_report">Enviar relatórios de erro</string>
-    <string name="helps_fix_bugs">Ajuda a corrigir eventuais erros. Não serão enviados dados sensíveis</string>
     <string name="whats_new">O que há de novo</string>
     <string name="website">Site</string>
     <string name="open_source_licenses">Licenças de código aberto</string>

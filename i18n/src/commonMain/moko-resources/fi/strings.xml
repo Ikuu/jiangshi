@@ -206,8 +206,6 @@
     <string name="version">Versio</string>
     <string name="build_time">Kasausaika</string>
     <string name="check_for_updates">Tarkista päivitykset</string>
-    <string name="send_crash_report">Lähetä kaatumisilmoituksia</string>
-    <string name="helps_fix_bugs">Auttaa korjaamaan bugeja. Arkaluonteista tietoa ei lähetetä</string>
     <string name="log_in_to_">%1$s kirjautuminen</string>
     <string name="username">Käyttäjätunnus</string>
     <string name="password">Salasana</string>

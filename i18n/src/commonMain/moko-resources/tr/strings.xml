@@ -170,8 +170,6 @@
     <string name="version">Sürüm</string>
     <string name="build_time">İnşa tarihi</string>
     <string name="check_for_updates">Güncellemeleri denetle</string>
-    <string name="send_crash_report">Çökme raporlarını gönder</string>
-    <string name="helps_fix_bugs">Hataların düzeltilmesine yardımcı olur. Hiçbir hassas veri gönderilmez</string>
     <string name="log_in_to_">%1$s için giriş</string>
     <string name="username">Kullanıcı adı</string>
     <string name="password">Parola</string>

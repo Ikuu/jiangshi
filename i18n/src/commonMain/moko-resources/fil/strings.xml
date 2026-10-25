@@ -57,8 +57,6 @@
     <string name="check_for_extension_updates">Maghanap ng update sa mga extension</string>
     <string name="version">Bersyon</string>
     <string name="build_time">Petsa at Oras ng build</string>
-    <string name="send_crash_report">Ipadala ang mga ulat ng pag-crash</string>
-    <string name="helps_fix_bugs">Nakatutulong sa pagsasaayos ng mga bug. Walang sensitibong datos ang ipapadala</string>
     <string name="website">Website</string>
     <string name="open_source_licenses">Mga lisensiyang open-source</string>
     <string name="log_in_to_">Mag-login sa %1$s</string>

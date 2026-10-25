@@ -126,8 +126,6 @@
     <string name="build_time">Date de compilation</string>
     <string name="check_for_updates">Rechercher des mises à jour</string>
     <!-- ACRA -->
-    <string name="send_crash_report">Envoyer des rapports de crash</string>
-    <string name="helps_fix_bugs">Cela aide à corriger les bugs. Aucune donnée sensible ne sera envoyée</string>
     <!-- Login dialog -->
     <string name="log_in_to_">Se connecter à %1$s</string>
     <string name="username">Nom d\'utilisateur</string>

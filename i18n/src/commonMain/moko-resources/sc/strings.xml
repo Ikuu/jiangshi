@@ -170,8 +170,6 @@
     <string name="version">Versione</string>
     <string name="build_time">Data de compilatzione</string>
     <string name="check_for_updates">Chirca agiornamentos</string>
-    <string name="send_crash_report">Imbia raportos a pitzu de sos arrestos anòmalos</string>
-    <string name="helps_fix_bugs">Agiudat a acontzare cale si siat faddina. Perunu datu sensìbile at a èssere imbiadu</string>
     <string name="log_in_to_">Intrada pro %1$s</string>
     <string name="username">Nùmene impreadore</string>
     <string name="password">Crae de intrada</string>

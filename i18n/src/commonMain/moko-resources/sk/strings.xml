@@ -226,8 +226,6 @@
     <string name="pref_global_search">Hľadať všade</string>
     <string name="version">Verzia</string>
     <string name="build_time">Čas sestavenia</string>
-    <string name="send_crash_report">Odosielať správy o zlyhaní</string>
-    <string name="helps_fix_bugs">Pomáha opraviť akékoľvek chyby. Nebudú odoslané žiadne citlivé údaje</string>
     <string name="username">Užívateľské meno</string>
     <string name="password">Heslo</string>
     <string name="cancel_all">Zrušiť všetky</string>

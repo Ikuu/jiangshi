@@ -287,8 +287,6 @@
     <string name="navigate_pan">Pag-navigate sa pan</string>
     <string name="network">Network</string>
     <string name="disable_battery_optimization">I-disable ang pag-optimize sa baterya</string>
-    <string name="send_crash_report">Ipadala ang mga taho sa pagkahagsa</string>
-    <string name="helps_fix_bugs">Nakatabang sa pag-ayo sa bisan unsang mga bug. Walay sensitibo nga datos nga ipadala</string>
     <string name="normal">Normal</string>
     <string name="lavender">Lavender</string>
     <string name="updated_to_">Mga update sa v%1$s</string>

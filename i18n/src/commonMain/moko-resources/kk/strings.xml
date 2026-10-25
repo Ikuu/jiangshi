@@ -332,8 +332,6 @@
     <string name="restore_content_full">Сақтық көшірме файлынан мәлімет қалпына келеді. \n \nОны қоллану үшін сізге түгел жетпей тұрған қосымшаларды жүктеп, бақылау сервистеріне кіру керек.</string>
     <string name="what_should_backup">Сақтық көшірмесіне нені қалайсыз?</string>
     <string name="saves_error_logs">Қателер тарихын әзірлеушілерге жіберу үшін файлға сақтайды</string>
-    <string name="send_crash_report">Қате туралы есептерді жіберу</string>
-    <string name="helps_fix_bugs">Барлық мүмкін қателерді түзетуге көмектеседі. Пайдаланушы деректері жіберілмейді</string>
     <string name="log_out">Шығу</string>
     <string name="log_out_from_">%1$s-ден шығасыз ба?</string>
     <string name="successfully_logged_out">Сіз шығып кеттіңіз</string>

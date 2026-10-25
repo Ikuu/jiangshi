@@ -321,7 +321,6 @@
     <string name="clear_cached_covers_non_library">Garbitu liburutegian ez dauden cacheko azalak</string>
     <string name="you_can_migrate_in_library">Zure liburutegiko mangak hautatuta migra dezakezu baita ere</string>
     <string name="help_translate">Lagundu itzultzen</string>
-    <string name="helps_fix_bugs">Edozein akats konpontzen laguntzen du. Ez da datu sentikorrik bidaliko</string>
     <string name="invalid_download_location">Deskarga kokapen baliogabea</string>
     <string name="log_in_to_">Hasi saioa %1$s-n</string>
     <string name="username_must_not_be_blank">Erabiltzaile-izena edo pasahitza ezin da hutsik egon</string>
@@ -471,7 +470,6 @@
     <string name="clear_database">Garbitu datu-basea</string>
     <string name="clear_cookies">Garbitu cookieak</string>
     <string name="whats_new_this_release">Zer dago berri bertsio honetan</string>
-    <string name="send_crash_report">Bidali hutsegite-txostenak</string>
     <string name="downloaded">Deskargatuak</string>
     <string name="cancel_all_for_series">Utzi alde batera argitalpen honetako guztiak</string>
     <string name="visit_recents_for_download_queue">Bisitatu \"Duela Gutxi\" fitxa deskarga-ilarara sartzeko. Birritan sakatu edo sakatu eta mantendu egin dezakezu baita ere, azkarrago sartzeko</string>

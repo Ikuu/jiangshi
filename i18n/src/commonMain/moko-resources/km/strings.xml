@@ -865,8 +865,6 @@
     <string name="action_replace_repo_message">ឃ្លាំង %1$s មានស្នាមម្រាមដៃកូនសោចុះហត្ថលេខាដូចគ្នានឹង %2$s។\nបើវាជាការរំពឹងទុក %2$s នឹងត្រូវបានជំនួស បើមិនមែនទេ សូមទាក់ទងអ្នកគ្រប់គ្រងឃ្លាំងរបស់អ្នក។</string>
     <string name="version">កំណែ</string>
     <string name="build_time">ពេលវេលា Build</string>
-    <string name="send_crash_report">ផ្ញើរបាយការណ៍គាំង</string>
-    <string name="helps_fix_bugs">ជួយកែសម្រួលកំហុស។ គ្មានទិន្នន័យសំខាន់ត្រូវបានផ្ញើទេ</string>
     <string name="whats_new">អ្វីថ្មី</string>
     <string name="whats_new_this_release">អ្វីថ្មីក្នុងកំណែនេះ</string>
     <string name="help_translate">ជួយបកប្រែ</string>

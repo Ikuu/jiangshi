@@ -171,8 +171,6 @@
     <string name="version">เวอร์ชัน</string>
     <string name="build_time">เวลาเมื่อบิลด์</string>
     <string name="check_for_updates">ตรวจสอบการอัปเดต</string>
-    <string name="send_crash_report">ส่งรายงานความผิดพลาด</string>
-    <string name="helps_fix_bugs">ช่วยแก้ไขจุดบกพร่องต่างๆ จะไม่มีการส่งข้อมูลที่สำคัญ</string>
     <string name="log_in_to_">ลงชื่อเข้าใช้ %1$s</string>
     <string name="username">ชื่อผู้ใช้</string>
     <string name="password">รหัสผ่าน</string>

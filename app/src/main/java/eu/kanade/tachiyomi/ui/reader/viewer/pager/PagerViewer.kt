@@ -310,11 +310,18 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
         // Remove Listener since we're about to change the size of the items
         // If we don't the size change could put us on a new chapter
         pager.removeOnPageChangeListener(pagerListener)
+        // Read before setChaptersInternal, which can select the first page of a pair and
+        // overwrite requestedPage with it
+        val requestedPage = chapters.currChapter.requestedPage
         setChaptersInternal(chapters)
         if (!hasMoved) {
             activity.isScrollingThroughPagesOrChapters = true
             chapters.currChapter.pages?.let { pages ->
-                moveToPage(pages[chapters.currChapter.requestedPage], false)
+                // Prefer the page we were explicitly sent to: requestedPage gets overwritten with
+                // the first page of whichever pair is shown, e.g. when a cover shift re-lays out
+                val target = pendingRequestedPage?.takeIf { it.chapter == chapters.currChapter }
+                    ?: pages[requestedPage]
+                moveToPage(target, false)
             }
             activity.isScrollingThroughPagesOrChapters = false
         }
@@ -385,7 +392,13 @@ abstract class PagerViewer(val activity: ReaderActivity) : BaseViewer {
                     )
         }
         if (position != -1) {
-            pendingRequestedPage = page
+            // Moving to the other page of the pair already being kept shouldn't replace it
+            val keepsPending = pendingRequestedPage?.let { pending ->
+                adapter.joinedItems[position].let { it.first == pending || it.second == pending }
+            } == true
+            if (!keepsPending) {
+                pendingRequestedPage = page
+            }
             val currentPosition = pager.currentItem
             pager.setCurrentItem(position, animated)
             // manually call onPageChange since ViewPager listener is not triggered in this case

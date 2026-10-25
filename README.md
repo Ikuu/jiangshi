@@ -65,7 +65,7 @@ git fetch upstream
 git merge upstream/master
 ```
 
-Yōkai's release and mirror workflows, Renovate config, funding links and issue templates are deleted on `main`. If a merge reports a modify/delete conflict on one of them, keep it deleted with `git rm <file>`. Those workflows still exist on `master`, so keep them disabled in the repo's Actions settings so they don't run when `master` is pushed.
+Yōkai's release and mirror workflows, Renovate config, funding links and issue templates are deleted on `main`. If a merge reports a modify/delete conflict on one of them, keep it deleted with `git rm <file>`. Yōkai's `master` still has those workflows, so don't push it to the fork, or disable them in the Actions tab first if you do.
 
 ## Disclaimer
 

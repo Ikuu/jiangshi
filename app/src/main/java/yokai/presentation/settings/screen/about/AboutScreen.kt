@@ -80,6 +80,8 @@ class AboutScreen : Screen() {
             }
         }
         LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+            // Jiangshi: this check ignored INCLUDE_UPDATER, so builds without the updater still prompted
+            if (!BuildConfig.INCLUDE_UPDATER) return@LifecycleEventEffect
             // FIXME: Move this to MainActivity once the app is fully migrated to Compose
             scope.launchIO {
                 context.checkVersion(

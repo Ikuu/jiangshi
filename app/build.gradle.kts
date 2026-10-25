@@ -22,7 +22,7 @@ fun runCommand(command: String): String {
 @Suppress("PropertyName")
 val _versionName = "1.10.3"
 // Jiangshi's own version. versionCode stays Yokai's so upstream migrations still run.
-val jiangshiVersion = "0.1.1"
+val jiangshiVersion = "1.0.0"
 val betaCount by lazy {
     val betaTags = runCommand("git tag -l --sort=refname v${_versionName}-b*")
 
@@ -40,8 +40,7 @@ val buildTime: String by lazy {
     LocalDateTime.now(ZoneOffset.UTC).format(df)
 }
 
-// Jiangshi: only build for arm64 phones. Add ABIs back here if another device needs it.
-val supportedAbis = setOf("arm64-v8a")
+val supportedAbis = setOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
 
 android {
     defaultConfig {
@@ -69,8 +68,8 @@ android {
 
     splits {
         abi {
-            // Jiangshi: one ABI, so a single APK (ndk abiFilters) instead of splits
-            isEnable = false
+            // One APK per ABI, plus a universal APK that runs on any device
+            isEnable = true
             reset()
             // False positive, we have x86 abi support
             //noinspection ChromeOsAbiSupport

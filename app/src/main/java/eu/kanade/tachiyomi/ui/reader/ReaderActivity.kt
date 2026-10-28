@@ -427,6 +427,9 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
                         viewModel.manga?.let(::setManga)
                         viewModel.state.value.viewerChapters?.let(::setChapters)
                     }
+                    ReaderViewModel.Event.LongStripDetected -> {
+                        showDetectedReadingMode(ReadingModeType.LONG_STRIP.flagValue)
+                    }
                     ReaderViewModel.Event.ReloadViewerChapters -> {
                         viewModel.state.value.viewerChapters?.let(::setChapters)
                     }
@@ -1213,6 +1216,28 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         menuTemporarilyVisible = false
     }
 
+    /** Tells the user which reading mode was picked for them, with a way back to their default. */
+    private fun showDetectedReadingMode(mangaViewer: Int) {
+        snackbar = binding.readerLayout.snack(
+            getString(
+                MR.strings.reading_,
+                getString(
+                    when (mangaViewer) {
+                        ReadingModeType.RIGHT_TO_LEFT.flagValue -> MR.strings.right_to_left_viewer
+                        ReadingModeType.VERTICAL.flagValue -> MR.strings.vertical_viewer
+                        ReadingModeType.LONG_STRIP.flagValue -> MR.strings.long_strip
+                        else -> MR.strings.left_to_right_viewer
+                    },
+                ).lowercase(Locale.getDefault()),
+            ),
+            4000,
+        ) {
+            setAction(MR.strings.use_default) {
+                viewModel.setMangaReadingMode(0)
+            }
+        }
+    }
+
     /**
      * Called from the view model when a manga is ready. Used to instantiate the appropriate viewer
      * and the binding.toolbar title.
@@ -1232,24 +1257,7 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
         if (noDefault && viewModel.manga?.readingModeType!! > 0 &&
             viewModel.manga?.readingModeType!! != preferences.defaultReadingMode(manga.source)
         ) {
-            snackbar = binding.readerLayout.snack(
-                getString(
-                    MR.strings.reading_,
-                    getString(
-                        when (mangaViewer) {
-                            ReadingModeType.RIGHT_TO_LEFT.flagValue -> MR.strings.right_to_left_viewer
-                            ReadingModeType.VERTICAL.flagValue -> MR.strings.vertical_viewer
-                            ReadingModeType.LONG_STRIP.flagValue -> MR.strings.long_strip
-                            else -> MR.strings.left_to_right_viewer
-                        },
-                    ).lowercase(Locale.getDefault()),
-                ),
-                4000,
-            ) {
-                setAction(MR.strings.use_default) {
-                    viewModel.setMangaReadingMode(0)
-                }
-            }
+            showDetectedReadingMode(mangaViewer)
         }
 
         if (window.sharedElementEnterTransition is MaterialContainerTransform &&

@@ -56,15 +56,20 @@ import eu.kanade.tachiyomi.util.system.withUIContext
 import java.util.Date
 import java.util.concurrent.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -157,6 +162,12 @@ class ReaderViewModel(
     private var finished = false
     private var chapterToDownload: Download? = null
 
+    /**
+     * Watches the first chapter's pages to switch a series to long strip, until the user picks a
+     * reading mode themselves.
+     */
+    private var longStripDetectionJob: Job? = null
+
     private val unfilteredChapterList by lazy {
         val manga = manga!!
         runBlocking { getChapter.awaitAll(manga, filterScanlators = false) }
@@ -219,6 +230,9 @@ class ReaderViewModel(
             try {
                 val manga = getManga.awaitById(mangaId)
                 if (manga != null) {
+                    // Decided before the reader saves a mode for a series that has none yet
+                    val detectLongStrip = manga.viewer_flags == -1 && manga.defaultReaderType() == 0 &&
+                        !ReadingModeType.isWebtoonType(preferences.defaultReadingMode(manga.source))
                     mutableState.update { it.copy(manga = manga) }
                     if (chapterId == -1L) {
                         chapterId = initialChapterId
@@ -237,7 +251,8 @@ class ReaderViewModel(
                     loader = ChapterLoader(context, downloadManager, downloadProvider, manga, source)
 
                     chapterList = getChapterList()
-                    loadChapter(loader!!, chapterList!!.first { chapterId == it.chapter.id })
+                    val viewerChapters = loadChapter(loader!!, chapterList!!.first { chapterId == it.chapter.id })
+                    if (detectLongStrip) detectLongStrip(viewerChapters.currChapter)
                     Result.success(true)
                 } else {
                     // Unlikely but okay
@@ -757,25 +772,53 @@ class ReaderViewModel(
      * Updates the viewer position for the open manga.
      */
     fun setMangaReadingMode(readingModeType: Int) {
+        longStripDetectionJob?.cancel()
+        viewModelScope.launchIO { updateMangaReadingMode(readingModeType) }
+    }
+
+    private suspend fun updateMangaReadingMode(readingModeType: Int) {
         val manga = manga ?: return
+        if (manga.viewer_flags == -1) manga.viewer_flags = 0
+        manga.readingModeType = readingModeType
+        updateManga.await(MangaUpdate(manga.id!!, viewerFlags = manga.viewer_flags))
+        val currChapters = state.value.viewerChapters
+        if (currChapters != null) {
+            // Save current page
+            val currChapter = currChapters.currChapter
+            currChapter.requestedPage = currChapter.chapter.last_page_read
 
-        viewModelScope.launchIO {
-            manga.readingModeType = readingModeType
-            updateManga.await(MangaUpdate(manga.id!!, viewerFlags = manga.viewer_flags))
-            val currChapters = state.value.viewerChapters
-            if (currChapters != null) {
-                // Save current page
-                val currChapter = currChapters.currChapter
-                currChapter.requestedPage = currChapter.chapter.last_page_read
-
-                mutableState.update {
-                    it.copy(
-                        manga = getManga.awaitById(manga.id!!),
-                        viewerChapters = currChapters,
-                    )
-                }
-                eventChannel.send(Event.ReloadMangaAndChapters)
+            mutableState.update {
+                it.copy(
+                    manga = getManga.awaitById(manga.id!!),
+                    viewerChapters = currChapters,
+                )
             }
+            eventChannel.send(Event.ReloadMangaAndChapters)
+        }
+    }
+
+    /**
+     * Switches the series to long strip once the loaded pages of [chapter] show its art running
+     * from one page into the next, which catches webtoons whose source tags don't say so.
+     */
+    private fun detectLongStrip(chapter: ReaderChapter) {
+        val pages = chapter.pages ?: return
+        if (pages.size < 2) return
+        val detector = LongStripDetector()
+        longStripDetectionJob = viewModelScope.launchIO {
+            val isLongStrip = pages
+                .map { page -> page.statusFlow.filter { it == Page.State.Ready }.take(1).map { page } }
+                .merge()
+                .take(LongStripDetector.MAX_PAGES)
+                .map { detector.add(it) }
+                .firstOrNull { it != null }
+            Logger.d { "Long strip detection: $isLongStrip" }
+            if (isLongStrip != true) return@launchIO
+            val manga = manga ?: return@launchIO
+            // Downloaded pages can be read before the reader has replaced the unset -1
+            if (manga.viewer_flags != -1 && manga.readingModeType != 0) return@launchIO
+            updateMangaReadingMode(ReadingModeType.LONG_STRIP.flagValue)
+            eventChannel.send(Event.LongStripDetected)
         }
     }
 
@@ -1068,6 +1111,7 @@ class ReaderViewModel(
     sealed class Event {
         object ReloadViewerChapters : Event()
         object ReloadMangaAndChapters : Event()
+        object LongStripDetected : Event()
         data class SetOrientation(val orientation: Int) : Event()
         data class SetCoverResult(val result: SetAsCoverResult) : Event()
 

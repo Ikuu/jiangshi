@@ -1,0 +1,54 @@
+package eu.kanade.tachiyomi.ui.manga.chapter
+
+import android.view.View
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import eu.davidea.flexibleadapter.FlexibleAdapter
+import eu.davidea.flexibleadapter.items.AbstractFlexibleItem
+import eu.davidea.flexibleadapter.items.IFlexible
+import eu.davidea.viewholders.FlexibleViewHolder
+import eu.kanade.tachiyomi.R
+import java.text.DecimalFormat
+import yokai.i18n.MR
+import yokai.util.lang.getString
+
+/**
+ * Separator above a volume's chapters. [volume] is null for chapters that aren't in a volume.
+ * [index] keeps headers distinct when a sort splits a volume into more than one run.
+ */
+class VolumeHeaderItem(val volume: Float?, private val index: Int) : AbstractFlexibleItem<VolumeHeaderItem.Holder>() {
+
+    override fun getLayoutRes(): Int = R.layout.chapter_volume_header_item
+
+    override fun isSelectable(): Boolean = false
+
+    override fun isSwipeable(): Boolean = false
+
+    override fun createViewHolder(view: View, adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>): Holder {
+        return Holder(view, adapter)
+    }
+
+    override fun bindViewHolder(
+        adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>,
+        holder: Holder,
+        position: Int,
+        payloads: MutableList<Any?>?,
+    ) {
+        val context = holder.itemView.context
+        holder.title.text = if (volume != null) {
+            context.getString(MR.strings.volume_number, DecimalFormat("#.###").format(volume))
+        } else {
+            context.getString(MR.strings.chapters)
+        }
+    }
+
+    override fun equals(other: Any?): Boolean {
+        return other is VolumeHeaderItem && volume == other.volume && index == other.index
+    }
+
+    override fun hashCode(): Int = 31 * volume.hashCode() + index
+
+    class Holder(view: View, adapter: FlexibleAdapter<*>) : FlexibleViewHolder(view, adapter) {
+        val title: TextView = view.findViewById(R.id.volume_title)
+    }
+}

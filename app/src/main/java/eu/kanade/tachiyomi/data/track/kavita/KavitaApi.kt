@@ -156,10 +156,34 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         }
     }
 
+    suspend fun getSeriesLayout(url: String): KavitaSeriesLayout = withIOContext {
+        val series = authClient.newCall(GET(url)).awaitSuccess().parseAs<SeriesDto>()
+        val libraryType = authClient.newCall(GET("${getApiFromUrl(url)}/Library/libraries"))
+            .awaitSuccess()
+            .parseAs<List<LibraryDto>>()
+            .find { it.id == series.libraryId }
+            ?.type
+        val volumes = authClient.newCall(GET(getApiVolumesUrl(url))).awaitSuccess().parseAs<List<VolumeDto>>()
+        KavitaSeriesLayout(
+            isComic = libraryType == LIBRARY_TYPE_COMIC || libraryType == LIBRARY_TYPE_COMIC_VINE,
+            chapterVolumes = volumes.flatMap { volume ->
+                // Loose chapters sit in volume -100000 and specials in volume 100000
+                val number = (volume.minNumber ?: volume.number.toFloat()).takeIf { it > 0f && it < 100_000f }
+                volume.chapters.mapNotNull { chapter -> chapter.id?.let { it to number } }
+            }.toMap(),
+        )
+    }
+
     suspend fun updateProgress(track: Track): Track {
         val requestUrl = "${getApiFromUrl(track.tracking_url)}/Tachiyomi/mark-chapter-until-as-read?seriesId=${getIdFromUrl(track.tracking_url)}&chapterNumber=${track.last_chapter_read}"
         authClient.newCall(POST(requestUrl, body = "{}".toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())))
             .awaitSuccess()
         return getTrackSearch(track.tracking_url)
+    }
+
+    companion object {
+        // REF: https://github.com/Kareadita/Kavita/blob/develop/API/Entities/Enums/LibraryType.cs
+        private const val LIBRARY_TYPE_COMIC = 1
+        private const val LIBRARY_TYPE_COMIC_VINE = 5
     }
 }

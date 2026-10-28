@@ -40,12 +40,14 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.nameBasedOnEnabledLanguages
 import eu.kanade.tachiyomi.ui.base.holder.BaseFlexibleViewHolder
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.lang.toNormalized
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isInNightMode
 import eu.kanade.tachiyomi.util.system.isLTR
 import eu.kanade.tachiyomi.util.view.resetStrokeColor
+import java.util.Locale
 import io.noties.markwon.Markwon
 import io.noties.markwon.SoftBreakAddsNewLinePlugin
 import android.text.method.LinkMovementMethod
@@ -284,16 +286,32 @@ class MangaHeaderHolder(
 
     fun bindChapters() {
         val presenter = adapter.delegate.mangaPresenter()
-        val count = presenter.chapters.size
         if (binding != null) {
             binding.chaptersTitle.text =
-                itemView.context.getString(MR.plurals.chapters_plural, count, count)
+                ChapterUtil.entryCountText(itemView.context, presenter.chapters)
             binding.filtersText.text = presenter.currentFilters()
+            binding.mangaSummaryLabel.text = itemView.context.getString(MR.strings.about_this_, seriesTypeName())
         } else if (chapterBinding != null) {
             chapterBinding.chaptersTitle.text =
-                itemView.context.getString(MR.plurals.chapters_plural, count, count)
+                ChapterUtil.entryCountText(itemView.context, presenter.chapters)
             chapterBinding.filtersText.text = presenter.currentFilters()
         }
+    }
+
+    /**
+     * A Kavita comic library, or comic issues from any source, mark the series as a comic unless its
+     * tags or the edit dialog already give it a type.
+     */
+    private fun seriesTypeName(): String {
+        val presenter = adapter.delegate.mangaPresenter()
+        val manga = presenter.manga
+        val hasTypeTag = manga.genre?.split(",")?.any { manga.isSeriesTag(it.trim()) } == true
+        val isComic = presenter.kavitaLayout?.isComic == true ||
+            presenter.allChapters.any { ChapterUtil.entryKind(it) == ChapterUtil.Companion.EntryKind.Issue }
+        if (!hasTypeTag && isComic) {
+            return itemView.context.getString(MR.strings.comic).lowercase(Locale.getDefault())
+        }
+        return manga.seriesType(itemView.context)
     }
 
     @SuppressLint("SetTextI18n", "StringFormatInvalid")
@@ -303,9 +321,8 @@ class MangaHeaderHolder(
 
         if (binding == null) {
             if (chapterBinding != null) {
-                val count = presenter.chapters.size
                 chapterBinding.chaptersTitle.text =
-                    itemView.context.getString(MR.plurals.chapters_plural, count, count)
+                    ChapterUtil.entryCountText(itemView.context, presenter.chapters)
                 chapterBinding.filtersText.text = presenter.currentFilters()
                 if (adapter.preferences.themeMangaDetails().get()) {
                     val accentColor = adapter.delegate.accentColor() ?: return
@@ -342,10 +359,7 @@ class MangaHeaderHolder(
                 expand()
             }
         }
-        binding.mangaSummaryLabel.text = itemView.context.getString(
-            MR.strings.about_this_,
-            manga.seriesType(itemView.context),
-        )
+        binding.mangaSummaryLabel.text = itemView.context.getString(MR.strings.about_this_, seriesTypeName())
         with(binding.favoriteButton) {
             icon = ContextCompat.getDrawable(
                 itemView.context,
@@ -419,8 +433,7 @@ class MangaHeaderHolder(
             }
         }
 
-        val count = presenter.chapters.size
-        binding.chaptersTitle.text = itemView.context.getString(MR.plurals.chapters_plural, count, count)
+        binding.chaptersTitle.text = ChapterUtil.entryCountText(itemView.context, presenter.chapters)
 
         binding.topView.updateLayoutParams<ConstraintLayout.LayoutParams> {
             height = adapter.delegate.topCoverHeight()

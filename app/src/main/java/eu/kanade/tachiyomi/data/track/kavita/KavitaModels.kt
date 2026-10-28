@@ -31,7 +31,8 @@ data class SeriesDto(
 @Serializable
 data class VolumeDto(
     val id: Int,
-    val number: Int,
+    val number: Int = 0,
+    val minNumber: Float? = null,
     val name: String,
     val pages: Int,
     val pagesRead: Int,
@@ -53,6 +54,19 @@ data class ChapterDto(
     val coverImageLocked: Boolean? = false,
     val volumeId: Int? = -1,
     val created: String? = "",
+)
+
+@Serializable
+data class LibraryDto(
+    val id: Int,
+    val type: Int,
+)
+
+/** What the manga details screen needs from the server to show volumes and the series type */
+data class KavitaSeriesLayout(
+    val isComic: Boolean,
+    /** Kavita chapter ID to its volume number, or null for loose chapters and specials */
+    val chapterVolumes: Map<Int, Float?>,
 )
 
 @Serializable

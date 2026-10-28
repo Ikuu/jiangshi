@@ -13,6 +13,7 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.ui.manga.chapter.BaseChapterAdapter
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
+import eu.kanade.tachiyomi.ui.manga.chapter.VolumeHeaderItem
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.system.isLTR
 import uy.kohesive.injekt.injectLazy
@@ -56,12 +57,27 @@ class MangaDetailsAdapter(
     fun performFilter() {
         val s = getFilter(String::class.java)
         if (s.isNullOrBlank()) {
-            updateDataSet(items)
+            updateDataSet(withVolumeHeaders(items))
         } else {
             updateDataSet(
-                items.filter { it.name.contains(s, true) },
+                withVolumeHeaders(items.filter { it.name.contains(s, true) }),
             )
         }
+    }
+
+    private fun withVolumeHeaders(chapters: List<ChapterItem>): List<IFlexible<*>> {
+        if (!presenter.showVolumeHeaders(chapters)) return chapters
+        val list = mutableListOf<IFlexible<*>>()
+        var lastVolume: Float? = null
+        chapters.forEach { chapter ->
+            val volume = presenter.volumeOf(chapter)
+            if (list.isEmpty() || volume != lastVolume) {
+                list.add(VolumeHeaderItem(volume, list.size))
+                lastVolume = volume
+            }
+            list.add(chapter)
+        }
+        return list
     }
 
     override fun onItemSwiped(position: Int, direction: Int) {

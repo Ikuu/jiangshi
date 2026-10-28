@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.data.track.kavita.KavitaSeriesLayout
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.NetworkPreferences
@@ -186,6 +187,10 @@ class MangaDetailsPresenter(
 
     var allChapterScanlators: Set<String> = emptySet()
 
+    /** Library type and chapter volumes from the Kavita server, when the source is Kavita */
+    var kavitaLayout: KavitaSeriesLayout? = null
+        private set
+
     override val progressJobs: MutableMap<Download, Job> = mutableMapOf()
     override val queueListenerScope get() = presenterScope
 
@@ -257,9 +262,45 @@ class MangaDetailsPresenter(
             }
 
             setTrackItems()
+            fetchKavitaLayout()
         }
 
         refreshTracking(false)
+    }
+
+    private suspend fun fetchKavitaLayout() {
+        val kavita = Injekt.get<TrackManager>().kavita
+        if (!kavita.accept(source)) return
+        kavitaLayout = try {
+            kavita.api.getSeriesLayout(manga.url)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not get Kavita volumes for ${manga.url}" }
+            return
+        }
+        withUIContext { view?.updateChapters() }
+    }
+
+    /**
+     * The volume a chapter belongs to. Kavita's server knows this even when the chapter name doesn't
+     * include it; other sources fall back to "Vol. 2" in the name.
+     */
+    fun volumeOf(chapter: Chapter): Float? {
+        val chapterVolumes = kavitaLayout?.chapterVolumes
+        val kavitaId = chapter.url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
+        if (chapterVolumes != null && kavitaId != null && kavitaId in chapterVolumes) return chapterVolumes[kavitaId]
+        return ChapterUtil.getVolumeNumber(chapter)?.toFloat()
+    }
+
+    /**
+     * Show a row per volume when chapters fall into more than one group. Comic volumes named after
+     * years (Batman 2016) aren't books in a series, so those are left as a flat list.
+     */
+    fun showVolumeHeaders(chapters: List<Chapter>): Boolean {
+        // Wait for the server rather than flashing headers guessed from names
+        if (kavitaLayout == null && Injekt.get<TrackManager>().kavita.accept(source)) return false
+        val volumes = chapters.map { volumeOf(it) }.toSet()
+        if (volumes.any { it != null && it >= 1800f && it <= 2200f }) return false
+        return volumes.size > 1 && volumes.any { it != null }
     }
 
     fun fetchChapters(andTracking: Boolean = true) {
@@ -582,6 +623,7 @@ class MangaDetailsPresenter(
             withUIContext {
                 view?.updateChapters()
             }
+            fetchKavitaLayout()
         }
     }
 

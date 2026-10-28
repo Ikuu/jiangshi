@@ -2,6 +2,16 @@
 
 All notable changes to Jiangshi are listed here. Each release's notes are also on its GitHub release page, and the in-app updater shows them.
 
+## [Unreleased]
+
+### Additions
+- Kavita series show a row for each volume above its chapters, using the volumes on the Kavita server. Other sources use "Vol. 2" in chapter names. Comics whose volumes are years (1998, 2025) stay a flat list
+- The chapter count says what the entries are, like "3 volumes · 7 chapters" or "25 issues"
+
+### Changes
+- Series in a Kavita comic library, or with comic issues, say "About this comic" instead of "About this manga"
+- Range download and mark as read count only chapters, not volume rows
+
 ## [1.0.0] - 2026-10-25
 
 The first release of Jiangshi.

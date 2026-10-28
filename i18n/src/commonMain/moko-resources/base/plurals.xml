@@ -10,6 +10,21 @@
         <item quantity="other">%1$s chapters</item>
     </plurals>
 
+    <plurals name="volumes_plural">
+        <item quantity="one">%1$s volume</item>
+        <item quantity="other">%1$s volumes</item>
+    </plurals>
+
+    <plurals name="issues_plural">
+        <item quantity="one">%1$s issue</item>
+        <item quantity="other">%1$s issues</item>
+    </plurals>
+
+    <plurals name="specials_plural">
+        <item quantity="one">%1$s special</item>
+        <item quantity="other">%1$s specials</item>
+    </plurals>
+
     <plurals name="category_plural">
         <item quantity="one">%d category</item>
         <item quantity="other">%d categories</item>

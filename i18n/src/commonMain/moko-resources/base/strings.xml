@@ -533,6 +533,7 @@
     <string name="continue_reading">Continue reading</string>
     <string name="chapters_">Chapters %1$s</string>
     <string name="volume_">Volume %1$d</string>
+    <string name="volume_number">Volume %1$s</string>
     <string name="season_">Season %1$d</string>
     <string name="added_to_library">Added to library</string>
     <string name="add_to_library">Add to Library</string>

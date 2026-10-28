@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.graphics.ColorUtils
 import androidx.core.widget.TextViewCompat
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
+import dev.icerock.moko.resources.PluralsResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.hideChapterTitle
@@ -21,6 +22,7 @@ import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
+import java.util.Locale
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
@@ -126,7 +128,7 @@ class ChapterUtil {
             return null
         }
 
-        private fun getVolumeNumber(chapter: Chapter): Int? {
+        fun getVolumeNumber(chapter: Chapter): Int? {
             val groups = volumeRegex.find(chapter.name)?.groups
             if (groups != null) return groups[2]?.value?.toIntOrNull()
             return null
@@ -164,6 +166,47 @@ class ChapterUtil {
 
         fun hasTensOfChapters(chapters: List<ChapterItem>): Boolean {
             return chapters.size > 20
+        }
+
+        enum class EntryKind(val plural: PluralsResource) {
+            Volume(MR.plurals.volumes_plural),
+            Chapter(MR.plurals.chapters_plural),
+            Issue(MR.plurals.issues_plural),
+            Special(MR.plurals.specials_plural),
+        }
+
+        private val volumeEntryRegex = Regex("""\bvol(ume)?\.? *[0-9]""", RegexOption.IGNORE_CASE)
+        private val chapterEntryRegex = Regex("""\b(ch|chap|chapter|ep|episode)\.? *[0-9]""", RegexOption.IGNORE_CASE)
+        private val issueEntryRegex = Regex("""^\s*#\s*[0-9]|\bissue\s*#?\s*[0-9]""", RegexOption.IGNORE_CASE)
+
+        /**
+         * Whether an entry is a whole volume, a chapter, a comic issue or a special. Kavita's extension
+         * puts the entry type in the scanlator field by default, so that is trusted over the name.
+         */
+        fun entryKind(chapter: Chapter): EntryKind {
+            when (chapter.scanlator?.trim()?.lowercase(Locale.ROOT)) {
+                "volume", "season" -> return EntryKind.Volume
+                "chapter", "episode" -> return EntryKind.Chapter
+                "issue" -> return EntryKind.Issue
+                "special" -> return EntryKind.Special
+            }
+            val name = chapter.name
+            return when {
+                issueEntryRegex.containsMatchIn(name) -> EntryKind.Issue
+                volumeEntryRegex.containsMatchIn(name) && !chapterEntryRegex.containsMatchIn(name) -> EntryKind.Volume
+                else -> EntryKind.Chapter
+            }
+        }
+
+        /** "12 chapters", or "2 volumes · 9 chapters" when the list isn't only chapters */
+        fun entryCountText(context: Context, chapters: List<Chapter>): String {
+            val counts = chapters.groupingBy { entryKind(it) }.eachCount()
+            if (counts.keys.all { it == EntryKind.Chapter }) {
+                return context.getString(MR.plurals.chapters_plural, chapters.size, chapters.size)
+            }
+            return EntryKind.entries.mapNotNull { kind ->
+                counts[kind]?.let { count -> context.getString(kind.plural, count, count) }
+            }.joinToString(" · ")
         }
 
         const val scanlatorSeparator = " [.] "

@@ -13,7 +13,7 @@ import kotlin.math.sqrt
  *
  * Webtoons are one tall strip cut into slices, so the bottom row of a slice nearly matches the top
  * row of the next, while separately drawn pages don't line up. Pages can't be told apart by shape:
- * slices copied from Webtoons are often shaped like a printed page.
+ * webtoon slices are often shaped like a printed page.
  */
 class LongStripDetector {
 

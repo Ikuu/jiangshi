@@ -1,8 +1,8 @@
 # Jiangshi
 
-A personal manga reader for Android, forked from [Yōkai](https://github.com/null2264/yokai).
+A manga and comic reader for Android, forked from [Yōkai](https://github.com/null2264/yokai) and reshaped around how I like to read.
 
-Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai backup restores cleanly. The changes on top of Yōkai are small and aimed at personal use.
+Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai backup restores cleanly. The changes on top of Yōkai are the ones I wanted: features for my own setup, like reading comics from a Kavita server, and defaults that suit my taste. They aren't meant to suit everyone, so if a change below isn't for you, Yōkai is the better fit.
 
 ## Changes from Yōkai
 

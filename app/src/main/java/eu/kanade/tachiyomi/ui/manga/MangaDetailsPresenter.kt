@@ -329,8 +329,8 @@ class MangaDetailsPresenter(
     }
 
     /**
-     * Puts the chapter number in front of names that don't contain it, so "The Straw Man, Part 6"
-     * reads "#24 · The Straw Man, Part 6". Whole volumes and specials keep their names.
+     * Puts the chapter number in front of names that don't contain it, so "Part 6" reads
+     * "#24 · Part 6". Whole volumes and specials keep their names.
      */
     fun numberedName(context: Context, chapter: Chapter, isComic: Boolean): String {
         val kind = entryKind(chapter)
@@ -349,7 +349,7 @@ class MangaDetailsPresenter(
 
     /**
      * Show a row per volume when chapters fall into more than one group. Comic volumes named after
-     * years (Batman 2016) aren't books in a series, so those are left as a flat list.
+     * years (a 2016 relaunch) aren't books in a series, so those are left as a flat list.
      */
     fun showVolumeHeaders(chapters: List<Chapter>): Boolean {
         // Wait for the server rather than flashing headers guessed from names

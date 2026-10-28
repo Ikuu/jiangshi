@@ -8,7 +8,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 - Kavita series show a row for each volume above its chapters, using the volumes on the Kavita server. Other sources use "Vol. 2" in chapter names. Comics whose volumes are years (1998, 2025) stay a flat list
 - The chapter count says what the entries are, like "3 volumes · 7 chapters" or "25 issues"
 - Volume rows show how many of their chapters are read. Long-press one to download, mark as read or unread, or remove downloads for the whole volume
-- Chapters whose names don't include their number get it in front, like `#24 · The Straw Man, Part 6` for comics or `Ch. 24 · …` for manga
+- Chapters whose names don't include their number get it in front, like `#24 · Part 6` for comics or `Ch. 24 · …` for manga
 - Kavita chapters show their page count, and "Page 5 of 24" while partly read, in place of the "Chapter"/"Volume" label
 
 ### Changes

@@ -133,8 +133,10 @@ private fun delayTrackingUpdate(
 ) {
     val trackings = preferences.trackingsToAddOnline().get().toMutableSet()
     val currentTracking = trackings.find { it.startsWith("$mangaId:${track.sync_id}:") }
+    // Rereading an earlier chapter shouldn't lower a pending update
+    val queuedChapterRead = currentTracking?.substringAfterLast(":")?.toFloatOrNull() ?: 0f
     trackings.remove(currentTracking)
-    trackings.add("$mangaId:${track.sync_id}:$newChapterRead")
+    trackings.add("$mangaId:${track.sync_id}:${maxOf(newChapterRead, queuedChapterRead)}")
     preferences.trackingsToAddOnline().set(trackings)
     DelayedTrackingUpdateJob.setupTask(preferences.context)
 }

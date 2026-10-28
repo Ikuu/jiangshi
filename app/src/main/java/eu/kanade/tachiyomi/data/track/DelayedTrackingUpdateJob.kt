@@ -31,7 +31,10 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
     override suspend fun doWork(): Result {
         val preferences = Injekt.get<PreferencesHelper>()
         val trackManager = Injekt.get<TrackManager>()
-        val trackings = preferences.trackingsToAddOnline().get().toMutableSet().mapNotNull {
+        val queued = preferences.trackingsToAddOnline().get()
+        // Entries that were sent or can't ever be sent, and so can leave the queue
+        val handled = queued.toMutableSet()
+        val trackings = queued.mapNotNull {
             val items = it.split(":")
             if (items.size != 3) {
                 null
@@ -39,15 +42,15 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
                 val mangaId = items[0].toLongOrNull() ?: return@mapNotNull null
                 val trackId = items[1].toLongOrNull() ?: return@mapNotNull null
                 val chapterNumber = items[2].toFloatOrNull() ?: return@mapNotNull null
-                mangaId to (trackId to chapterNumber)
+                mangaId to (trackId to chapterNumber) to it
             }
-        }.groupBy { it.first }
-        withContext(Dispatchers.IO) {
+        }.groupBy { it.first.first }
+        return withContext(Dispatchers.IO) {
             trackings.forEach {
                 val mangaId = it.key
-                val manga = getManga.awaitById(mangaId) ?: return@withContext
+                val manga = getManga.awaitById(mangaId) ?: return@forEach
                 val trackList = getTrack.awaitAllByMangaId(manga.id)
-                it.value.map { tC ->
+                it.value.forEach { (tC, entry) ->
                     val trackChapter = tC.second
                     val service = trackManager.getService(trackChapter.first)
                     val track = trackList.find { track -> track.sync_id == trackChapter.first }
@@ -58,17 +61,30 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
                             insertTrack.await(track)
                         } catch (e: Exception) {
                             Logger.e(e) { "Unable to update tracker [tracker id ${track.sync_id}]" }
+                            // Network being up doesn't mean the tracker is reachable (e.g. a VPN still
+                            // connecting), so keep it for the next attempt
+                            handled.remove(entry)
                         }
                     }
                 }
             }
-            preferences.trackingsToAddOnline().set(emptySet())
+            // Re-read so entries queued while this ran aren't lost
+            val remaining = preferences.trackingsToAddOnline().get() - handled
+            preferences.trackingsToAddOnline().set(remaining)
+            if (remaining.isEmpty()) {
+                Result.success()
+            } else if (runAttemptCount < MAX_ATTEMPTS) {
+                Result.retry()
+            } else {
+                // Stop retrying, but leave them queued for when the next update schedules this job
+                Result.success()
+            }
         }
-        return Result.success()
     }
 
     companion object {
         private const val TAG = "DelayedTrackingUpdate"
+        private const val MAX_ATTEMPTS = 8
 
         fun setupTask(context: Context) {
             val constraints =

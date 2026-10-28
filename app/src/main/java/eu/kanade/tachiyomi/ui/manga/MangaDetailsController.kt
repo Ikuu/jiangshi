@@ -942,6 +942,14 @@ class MangaDetailsController :
     fun refreshAdapter() = adapter?.notifyDataSetChanged()
 
     override fun onItemClick(view: View?, position: Int): Boolean {
+        (adapter?.getItem(position) as? VolumeHeaderItem)?.let {
+            // Collapsing would move the rows a range selection is counting from
+            if (actionMode == null) {
+                presenter.toggleVolume(it.volume, it.chapters)
+                adapter?.performFilter()
+            }
+            return false
+        }
         val chapterItem = (adapter?.getItem(position) as? ChapterItem) ?: return false
         val chapter = chapterItem.chapter
         if (actionMode != null) {

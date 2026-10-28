@@ -2,6 +2,11 @@
 
 All notable changes to Jiangshi are listed here. Each release's notes are also on its GitHub release page, and the in-app updater shows them.
 
+## [Unreleased]
+
+### Additions
+- Tap a volume row to collapse or expand its chapters. Long-press still opens the volume's menu. Fully read volumes start collapsed, and each series remembers the volumes you open or close
+
 ## [1.1.0] - 2026-10-28
 
 ### Additions

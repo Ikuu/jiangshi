@@ -195,6 +195,46 @@ class MangaDetailsPresenter(
 
     var allChapterScanlators: Set<String> = emptySet()
 
+    /**
+     * Volumes the user has expanded or collapsed against the default, stored per series as
+     * "mangaId|volume|1" (collapsed) or "|0" (expanded). Only overrides are kept, so a volume left
+     * alone follows the default and collapses once it's been read.
+     */
+    private val volumeCollapsePreference by lazy {
+        preferences.preferenceStore.getStringSet("manga_details_collapsed_volumes", emptySet())
+    }
+    private var volumeOverrides: Map<String, Boolean>? = null
+
+    private fun volumeOverrides(): Map<String, Boolean> {
+        return volumeOverrides ?: volumeCollapsePreference.get()
+            .filter { it.substringBefore('|') == mangaId.toString() }
+            .associate { it.substringAfter('|').substringBeforeLast('|') to it.endsWith("|1") }
+            .also { volumeOverrides = it }
+    }
+
+    /** Null [volume] is the group of chapters outside a volume */
+    private fun volumeKey(volume: Float?) = volume?.toString() ?: "none"
+
+    /** Volumes are hidden when every chapter in them is read, unless the user expanded them */
+    fun isVolumeCollapsed(volume: Float?, chapters: List<ChapterItem>): Boolean {
+        return volumeOverrides()[volumeKey(volume)] ?: chapters.all { it.read }
+    }
+
+    fun toggleVolume(volume: Float?, chapters: List<ChapterItem>) {
+        val key = volumeKey(volume)
+        val collapsed = !isVolumeCollapsed(volume, chapters)
+        val overrides = if (collapsed == chapters.all { it.read }) {
+            volumeOverrides() - key
+        } else {
+            volumeOverrides() + (key to collapsed)
+        }
+        volumeOverrides = overrides
+        val otherSeries = volumeCollapsePreference.get().filterNot { it.substringBefore('|') == mangaId.toString() }
+        volumeCollapsePreference.set(
+            otherSeries.toSet() + overrides.map { (key, collapsed) -> "$mangaId|$key|${if (collapsed) 1 else 0}" },
+        )
+    }
+
     /** Library type and chapter volumes from the Kavita server, when the source is Kavita */
     var kavitaLayout: KavitaSeriesLayout? = null
         private set

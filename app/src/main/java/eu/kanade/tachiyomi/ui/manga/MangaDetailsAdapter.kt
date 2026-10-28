@@ -79,7 +79,9 @@ class MangaDetailsAdapter(
             runs.last().second.add(chapter)
         }
         return runs.flatMapIndexed { index, (volume, volumeChapters) ->
-            listOf(VolumeHeaderItem(volume, index, volumeChapters)) + volumeChapters
+            val collapsed = presenter.isVolumeCollapsed(volume, volumeChapters)
+            listOf(VolumeHeaderItem(volume, index, volumeChapters, collapsed)) +
+                if (collapsed) emptyList() else volumeChapters
         }
     }
 

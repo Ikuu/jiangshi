@@ -183,6 +183,11 @@ class ChapterUtil {
          * Whether an entry is a whole volume, a chapter, a comic issue or a special. Kavita's extension
          * puts the entry type in the scanlator field by default, so that is trusted over the name.
          */
+        fun isEntryTypeLabel(scanlator: String): Boolean {
+            return scanlator.trim().lowercase(Locale.ROOT) in
+                setOf("volume", "season", "chapter", "episode", "issue", "special")
+        }
+
         fun entryKind(chapter: Chapter): EntryKind {
             when (chapter.scanlator?.trim()?.lowercase(Locale.ROOT)) {
                 "volume", "season" -> return EntryKind.Volume
@@ -199,10 +204,10 @@ class ChapterUtil {
         }
 
         /** "12 chapters", or "2 volumes · 9 chapters" when the list isn't only chapters */
-        fun entryCountText(context: Context, chapters: List<Chapter>): String {
-            val counts = chapters.groupingBy { entryKind(it) }.eachCount()
+        fun entryCountText(context: Context, kinds: List<EntryKind>): String {
+            val counts = kinds.groupingBy { it }.eachCount()
             if (counts.keys.all { it == EntryKind.Chapter }) {
-                return context.getString(MR.plurals.chapters_plural, chapters.size, chapters.size)
+                return context.getString(MR.plurals.chapters_plural, kinds.size, kinds.size)
             }
             return EntryKind.entries.mapNotNull { kind ->
                 counts[kind]?.let { count -> context.getString(kind.plural, count, count) }

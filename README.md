@@ -9,7 +9,7 @@ Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai ba
 * **Per-source reading mode**: set a default reading mode for each source in its extension settings. Sources without one use the global default.
 * **No telemetry**: Firebase, Crashlytics and analytics are removed from the build, along with the crash report toggle. Builds don't need a `google-services.json`.
 * **Updater**: checks Jiangshi's GitHub releases instead of Yōkai's, and shows Jiangshi's release notes. Debug builds don't check.
-* **Kavita volumes and comics**: Kavita series show which chapters belong to each volume, and series from a Kavita comic library say "About this comic". The chapter count names volumes, chapters and issues separately.
+* **Kavita volumes and comics**: Kavita series show which chapters belong to each volume, with page counts and per-volume progress. Series from a Kavita comic library count as comics, both on their page and in the library's type filter, which only offers the types your library has. The chapter count names volumes, chapters and issues separately.
 * **Suwayomi tracking**: works with newer Suwayomi servers that leave `meta` out of REST responses.
 * **Tracker User-Agent**: trackers see requests as coming from `Ikuu/jiangshi`, not Yōkai.
 * **Rotation in double page mode**: rotating the device no longer jumps back a page, including when the current page becomes part of a spread.

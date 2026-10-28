@@ -156,20 +156,54 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         }
     }
 
+    private suspend fun getLibraries(apiUrl: String): List<LibraryDto> {
+        return authClient.newCall(GET("$apiUrl/Library/libraries")).awaitSuccess().parseAs()
+    }
+
+    /** Library type for each series URL, looking up each server's libraries once */
+    suspend fun getLibraryTypes(urls: List<String>): Map<String, Int> = withIOContext {
+        urls.groupBy { getApiFromUrl(it) }.flatMap { (apiUrl, seriesUrls) ->
+            val libraries = getLibraries(apiUrl)
+            seriesUrls.mapNotNull { url ->
+                try {
+                    val series = authClient.newCall(GET(url)).awaitSuccess().parseAs<SeriesDto>()
+                    libraries.find { it.id == series.libraryId }?.let { url to it.type }
+                } catch (e: Exception) {
+                    Logger.w(e) { "Could not get Kavita library type for $url" }
+                    null
+                }
+            }
+        }.toMap()
+    }
+
     suspend fun getSeriesLayout(url: String): KavitaSeriesLayout = withIOContext {
         val series = authClient.newCall(GET(url)).awaitSuccess().parseAs<SeriesDto>()
-        val libraryType = authClient.newCall(GET("${getApiFromUrl(url)}/Library/libraries"))
-            .awaitSuccess()
-            .parseAs<List<LibraryDto>>()
-            .find { it.id == series.libraryId }
-            ?.type
+        val libraryType = getLibraries(getApiFromUrl(url)).find { it.id == series.libraryId }?.type
         val volumes = authClient.newCall(GET(getApiVolumesUrl(url))).awaitSuccess().parseAs<List<VolumeDto>>()
+        val isComic = libraryType == KavitaLibraryTypes.COMIC || libraryType == KavitaLibraryTypes.COMIC_VINE
         KavitaSeriesLayout(
-            isComic = libraryType == LIBRARY_TYPE_COMIC || libraryType == LIBRARY_TYPE_COMIC_VINE,
-            chapterVolumes = volumes.flatMap { volume ->
-                // Loose chapters sit in volume -100000 and specials in volume 100000
-                val number = (volume.minNumber ?: volume.number.toFloat()).takeIf { it > 0f && it < 100_000f }
-                volume.chapters.mapNotNull { chapter -> chapter.id?.let { it to number } }
+            libraryType = libraryType,
+            isComic = isComic,
+            chapters = volumes.flatMap { volume ->
+                val volumeNumber = volume.minNumber ?: volume.number.toFloat()
+                volume.chapters.mapNotNull { chapter ->
+                    val id = chapter.id ?: return@mapNotNull null
+                    // Same rules as the extension's ChapterType: loose chapters sit in volume -100000,
+                    // specials in volume 100000, and a whole-volume file has chapter number -100000
+                    val type = when {
+                        chapter.isSpecial == true || volumeNumber >= SPECIAL_NUMBER -> KavitaEntryType.Special
+                        volumeNumber <= UNNUMBERED_NUMBER -> if (isComic) KavitaEntryType.Issue else KavitaEntryType.Chapter
+                        chapter.number == UNNUMBERED_NUMBER.toInt().toString() -> KavitaEntryType.Volume
+                        else -> KavitaEntryType.Chapter
+                    }
+                    id to KavitaChapterInfo(
+                        volume = volumeNumber.takeIf { it > UNNUMBERED_NUMBER && it < SPECIAL_NUMBER },
+                        number = (chapter.minNumber ?: chapter.number?.toFloatOrNull())
+                            .takeIf { type == KavitaEntryType.Chapter || type == KavitaEntryType.Issue },
+                        pages = chapter.pages ?: 0,
+                        type = type,
+                    )
+                }
             }.toMap(),
         )
     }
@@ -182,8 +216,7 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
     }
 
     companion object {
-        // REF: https://github.com/Kareadita/Kavita/blob/develop/API/Entities/Enums/LibraryType.cs
-        private const val LIBRARY_TYPE_COMIC = 1
-        private const val LIBRARY_TYPE_COMIC_VINE = 5
+        private const val UNNUMBERED_NUMBER = -100_000f
+        private const val SPECIAL_NUMBER = 100_000f
     }
 }

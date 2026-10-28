@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.manga
 
 import android.app.Application
+import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import androidx.core.net.toFile
@@ -22,6 +23,7 @@ import eu.kanade.tachiyomi.data.database.models.downloadedFilter
 import eu.kanade.tachiyomi.data.database.models.prepareCoverUpdate
 import eu.kanade.tachiyomi.data.database.models.readFilter
 import eu.kanade.tachiyomi.data.database.models.removeCover
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.database.models.sortDescending
 import eu.kanade.tachiyomi.data.database.models.updateCoverLastModified
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -33,6 +35,9 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.data.track.kavita.KavitaChapterInfo
+import eu.kanade.tachiyomi.data.track.kavita.KavitaEntryType
+import eu.kanade.tachiyomi.data.track.kavita.KavitaLibraryTypes
 import eu.kanade.tachiyomi.data.track.kavita.KavitaSeriesLayout
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.HttpException
@@ -53,6 +58,7 @@ import eu.kanade.tachiyomi.ui.security.SecureActivityDelegate
 import eu.kanade.tachiyomi.util.chapter.ChapterFilter
 import eu.kanade.tachiyomi.util.chapter.ChapterSort
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithTrackServiceTwoWay
 import eu.kanade.tachiyomi.util.chapter.updateTrackChapterMarkedAsRead
@@ -74,6 +80,8 @@ import eu.kanade.tachiyomi.widget.TriStateCheckBox
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -271,13 +279,21 @@ class MangaDetailsPresenter(
     private suspend fun fetchKavitaLayout() {
         val kavita = Injekt.get<TrackManager>().kavita
         if (!kavita.accept(source)) return
-        kavitaLayout = try {
+        val layout = try {
             kavita.api.getSeriesLayout(manga.url)
         } catch (e: Exception) {
             Logger.w(e) { "Could not get Kavita volumes for ${manga.url}" }
             return
         }
+        kavitaLayout = layout
+        layout.libraryType?.let { KavitaLibraryTypes.putAll(mapOf(manga.url to it)) }
         withUIContext { view?.updateChapters() }
+    }
+
+    private fun kavitaInfo(chapter: Chapter): KavitaChapterInfo? {
+        val chapters = kavitaLayout?.chapters ?: return null
+        val kavitaId = chapter.url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
+        return kavitaId?.let { chapters[it] }
     }
 
     /**
@@ -285,10 +301,50 @@ class MangaDetailsPresenter(
      * include it; other sources fall back to "Vol. 2" in the name.
      */
     fun volumeOf(chapter: Chapter): Float? {
-        val chapterVolumes = kavitaLayout?.chapterVolumes
-        val kavitaId = chapter.url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
-        if (chapterVolumes != null && kavitaId != null && kavitaId in chapterVolumes) return chapterVolumes[kavitaId]
-        return ChapterUtil.getVolumeNumber(chapter)?.toFloat()
+        val info = kavitaInfo(chapter) ?: return ChapterUtil.getVolumeNumber(chapter)?.toFloat()
+        return info.volume
+    }
+
+    fun entryKind(chapter: Chapter): EntryKind {
+        return when (kavitaInfo(chapter)?.type) {
+            KavitaEntryType.Volume -> EntryKind.Volume
+            KavitaEntryType.Chapter -> EntryKind.Chapter
+            KavitaEntryType.Issue -> EntryKind.Issue
+            KavitaEntryType.Special -> EntryKind.Special
+            null -> ChapterUtil.entryKind(chapter)
+        }
+    }
+
+    /** Page count from the Kavita server, which knows it before the chapter is opened */
+    fun pageCount(chapter: Chapter): Int? = kavitaInfo(chapter)?.pages?.takeIf { it > 0 }
+
+    /**
+     * A Kavita comic library, or comic issues from any source, make the series a comic unless its
+     * tags or the edit dialog already give it a type.
+     */
+    fun isComic(): Boolean {
+        val hasTypeTag = manga.genre?.split(",")?.any { manga.isSeriesTag(it.trim()) } == true
+        if (hasTypeTag) return manga.seriesType() == Manga.TYPE_COMIC
+        return kavitaLayout?.isComic == true || allChapters.any { entryKind(it) == EntryKind.Issue }
+    }
+
+    /**
+     * Puts the chapter number in front of names that don't contain it, so "The Straw Man, Part 6"
+     * reads "#24 · The Straw Man, Part 6". Whole volumes and specials keep their names.
+     */
+    fun numberedName(context: Context, chapter: Chapter, isComic: Boolean): String {
+        val kind = entryKind(chapter)
+        if (kind != EntryKind.Chapter && kind != EntryKind.Issue) return chapter.name
+        val number = kavitaInfo(chapter)?.number
+            ?: chapter.chapter_number.takeIf { chapter.isRecognizedNumber }
+            ?: return chapter.name
+        val numbersInName = numberRegex.findAll(chapter.name).mapNotNull { it.value.toFloatOrNull() }
+        if (numbersInName.any { it == number }) return chapter.name
+        return context.getString(
+            if (isComic) MR.strings.issue_numbered_name else MR.strings.chapter_numbered_name,
+            numberFormat.format(number),
+            chapter.name,
+        )
     }
 
     /**
@@ -1252,5 +1308,8 @@ class MangaDetailsPresenter(
         const val MULTIPLE_VOLUMES = 1
         const val TENS_OF_CHAPTERS = 2
         const val MULTIPLE_SEASONS = 3
+
+        private val numberRegex = Regex("""[0-9]+(\.[0-9]+)?""")
+        private val numberFormat = DecimalFormat("#.###", DecimalFormatSymbols().apply { decimalSeparator = '.' })
     }
 }

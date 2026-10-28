@@ -1358,6 +1358,13 @@ open class LibraryController(
         }
     }
 
+    fun refreshSeriesTypeFilter() {
+        view ?: return
+        viewScope.launch {
+            binding.filterBottomSheet.root.checkSeriesTypes(presenter.sourceManager)
+        }
+    }
+
     fun scrollToCategory(category: Category?) {
         if (category != null && activeCategory != category.order) {
             scrollToHeader(category.order)

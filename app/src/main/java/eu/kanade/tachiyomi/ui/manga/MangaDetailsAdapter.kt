@@ -54,7 +54,12 @@ class MangaDetailsAdapter(
         return currentItems.indexOfFirst { it is ChapterItem && it.id == chapterId }
     }
 
+    /** Worked out once per refresh rather than for every row */
+    var isComic = false
+        private set
+
     fun performFilter() {
+        isComic = presenter.isComic()
         val s = getFilter(String::class.java)
         if (s.isNullOrBlank()) {
             updateDataSet(withVolumeHeaders(items))
@@ -67,17 +72,15 @@ class MangaDetailsAdapter(
 
     private fun withVolumeHeaders(chapters: List<ChapterItem>): List<IFlexible<*>> {
         if (!presenter.showVolumeHeaders(chapters)) return chapters
-        val list = mutableListOf<IFlexible<*>>()
-        var lastVolume: Float? = null
+        val runs = mutableListOf<Pair<Float?, MutableList<ChapterItem>>>()
         chapters.forEach { chapter ->
             val volume = presenter.volumeOf(chapter)
-            if (list.isEmpty() || volume != lastVolume) {
-                list.add(VolumeHeaderItem(volume, list.size))
-                lastVolume = volume
-            }
-            list.add(chapter)
+            if (runs.isEmpty() || runs.last().first != volume) runs.add(volume to mutableListOf())
+            runs.last().second.add(chapter)
         }
-        return list
+        return runs.flatMapIndexed { index, (volume, volumeChapters) ->
+            listOf(VolumeHeaderItem(volume, index, volumeChapters)) + volumeChapters
+        }
     }
 
     override fun onItemSwiped(position: Int, direction: Int) {

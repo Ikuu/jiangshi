@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.ui.library
 
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.core.preference.minusAssign
 import eu.kanade.tachiyomi.core.preference.plusAssign
 import eu.kanade.tachiyomi.data.cache.CoverCache
@@ -17,6 +18,7 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.DelayedLibrarySuggestionsJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.data.track.kavita.KavitaLibraryTypes
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.LocalSource
 import eu.kanade.tachiyomi.source.SourceManager
@@ -210,6 +212,7 @@ class LibraryPresenter(
 
         subscribeLibrary()
         updateLibrary()
+        fetchKavitaLibraryTypes()
 
         if (!preferences.showLibrarySearchSuggestions().isSet()) {
             DelayedLibrarySuggestionsJob.setupTask(context, true)
@@ -452,15 +455,10 @@ class LibraryPresenter(
         if (filterPrefs.filterBookmarked == STATE_INCLUDE && item.manga.bookmarkCount == 0) return false
         if (filterPrefs.filterBookmarked == STATE_EXCLUDE && item.manga.bookmarkCount > 0) return false
 
-        if (filterPrefs.filterMangaType > 0) {
-            if (if (filterPrefs.filterMangaType == Manga.TYPE_MANHWA) {
-                item.manga.manga.seriesType(sourceManager = sourceManager) !in arrayOf(filterPrefs.filterMangaType, Manga.TYPE_WEBTOON)
-            } else {
-                    filterPrefs.filterMangaType != item.manga.manga.seriesType(sourceManager = sourceManager)
-                }
-            ) {
-                return false
-            }
+        if (filterPrefs.filterMangaType > 0 &&
+            filterPrefs.filterMangaType != item.manga.manga.seriesType(sourceManager = sourceManager)
+        ) {
+            return false
         }
 
         // Filter for completed status of manga
@@ -1214,6 +1212,31 @@ class LibraryPresenter(
             default.mangaOrder = defOrder.split("/").mapNotNull { it.toLongOrNull() }
         }
         return default
+    }
+
+    /** Looks up which Kavita series are comics, for series the device hasn't seen on the server yet */
+    private fun fetchKavitaLibraryTypes() {
+        val kavita = Injekt.get<TrackManager>().kavita
+        presenterScope.launchIO {
+            val urls = getLibraryManga.await()
+                .map { it.manga }
+                .filter { kavita.accept(sourceManager.getOrStub(it.source)) && !KavitaLibraryTypes.contains(it.url) }
+                .map { it.url }
+                .distinct()
+            if (urls.isEmpty()) return@launchIO
+            val types = try {
+                kavita.api.getLibraryTypes(urls)
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not get Kavita library types" }
+                return@launchIO
+            }
+            if (KavitaLibraryTypes.putAll(types)) {
+                withUIContext {
+                    requestFilterUpdate()
+                    view?.refreshSeriesTypeFilter()
+                }
+            }
+        }
     }
 
     /** Requests the library to be filtered. */

@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.database.models
 import android.content.Context
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.kavita.KavitaLibraryTypes
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_COMIC
 import eu.kanade.tachiyomi.domain.manga.models.Manga.Companion.TYPE_MANGA
@@ -61,6 +62,8 @@ fun Manga.seriesType(useOriginalTags: Boolean = false, customTags: String? = nul
     val sourceName by lazy { (sourceManager ?: Injekt.get()).getOrStub(source).name }
     val tags = customTags ?: if (useOriginalTags) originalGenre else genre
     val currentTags = tags?.split(",")?.map { it.trim().lowercase(Locale.US) } ?: emptyList()
+    // Kavita doesn't tag comics, but the series' library on the server says what it is
+    if (currentTags.none { tag -> isSeriesTag(tag) } && KavitaLibraryTypes.isComic(url)) return TYPE_COMIC
     return if (currentTags.any { tag -> isMangaTag(tag) }) {
         TYPE_MANGA
     } else if (currentTags.any { tag -> isComicTag(tag) } ||

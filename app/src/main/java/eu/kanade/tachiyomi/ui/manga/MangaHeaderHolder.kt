@@ -288,30 +288,20 @@ class MangaHeaderHolder(
         val presenter = adapter.delegate.mangaPresenter()
         if (binding != null) {
             binding.chaptersTitle.text =
-                ChapterUtil.entryCountText(itemView.context, presenter.chapters)
+                ChapterUtil.entryCountText(itemView.context, presenter.chapters.map { presenter.entryKind(it) })
             binding.filtersText.text = presenter.currentFilters()
             binding.mangaSummaryLabel.text = itemView.context.getString(MR.strings.about_this_, seriesTypeName())
         } else if (chapterBinding != null) {
             chapterBinding.chaptersTitle.text =
-                ChapterUtil.entryCountText(itemView.context, presenter.chapters)
+                ChapterUtil.entryCountText(itemView.context, presenter.chapters.map { presenter.entryKind(it) })
             chapterBinding.filtersText.text = presenter.currentFilters()
         }
     }
 
-    /**
-     * A Kavita comic library, or comic issues from any source, mark the series as a comic unless its
-     * tags or the edit dialog already give it a type.
-     */
     private fun seriesTypeName(): String {
         val presenter = adapter.delegate.mangaPresenter()
-        val manga = presenter.manga
-        val hasTypeTag = manga.genre?.split(",")?.any { manga.isSeriesTag(it.trim()) } == true
-        val isComic = presenter.kavitaLayout?.isComic == true ||
-            presenter.allChapters.any { ChapterUtil.entryKind(it) == ChapterUtil.Companion.EntryKind.Issue }
-        if (!hasTypeTag && isComic) {
-            return itemView.context.getString(MR.strings.comic).lowercase(Locale.getDefault())
-        }
-        return manga.seriesType(itemView.context)
+        if (presenter.isComic()) return itemView.context.getString(MR.strings.comic).lowercase(Locale.getDefault())
+        return presenter.manga.seriesType(itemView.context)
     }
 
     @SuppressLint("SetTextI18n", "StringFormatInvalid")
@@ -322,7 +312,7 @@ class MangaHeaderHolder(
         if (binding == null) {
             if (chapterBinding != null) {
                 chapterBinding.chaptersTitle.text =
-                    ChapterUtil.entryCountText(itemView.context, presenter.chapters)
+                    ChapterUtil.entryCountText(itemView.context, presenter.chapters.map { presenter.entryKind(it) })
                 chapterBinding.filtersText.text = presenter.currentFilters()
                 if (adapter.preferences.themeMangaDetails().get()) {
                     val accentColor = adapter.delegate.accentColor() ?: return
@@ -433,7 +423,7 @@ class MangaHeaderHolder(
             }
         }
 
-        binding.chaptersTitle.text = ChapterUtil.entryCountText(itemView.context, presenter.chapters)
+        binding.chaptersTitle.text = ChapterUtil.entryCountText(itemView.context, presenter.chapters.map { presenter.entryKind(it) })
 
         binding.topView.updateLayoutParams<ConstraintLayout.LayoutParams> {
             height = adapter.delegate.topCoverHeight()

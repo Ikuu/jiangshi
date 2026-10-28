@@ -534,6 +534,9 @@
     <string name="chapters_">Chapters %1$s</string>
     <string name="volume_">Volume %1$d</string>
     <string name="volume_number">Volume %1$s</string>
+    <string name="volume_read_progress">%1$s · %2$d/%3$d read</string>
+    <string name="chapter_numbered_name">Ch. %1$s · %2$s</string>
+    <string name="issue_numbered_name">#%1$s · %2$s</string>
     <string name="season_">Season %1$d</string>
     <string name="added_to_library">Added to library</string>
     <string name="add_to_library">Add to Library</string>

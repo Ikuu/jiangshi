@@ -88,6 +88,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.main.SearchActivity
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterHolder
 import eu.kanade.tachiyomi.ui.manga.chapter.ChapterItem
+import eu.kanade.tachiyomi.ui.manga.chapter.VolumeHeaderItem
 import eu.kanade.tachiyomi.ui.manga.chapter.ChaptersSortBottomSheet
 import eu.kanade.tachiyomi.ui.manga.track.TrackItem
 import eu.kanade.tachiyomi.ui.manga.track.TrackingBottomSheet
@@ -984,6 +985,10 @@ class MangaDetailsController :
 
     override fun onItemLongClick(position: Int) {
         val adapter = adapter ?: return
+        (adapter.getItem(position) as? VolumeHeaderItem)?.let {
+            showVolumeMenu(it)
+            return
+        }
         val item = (adapter.getItem(position) as? ChapterItem) ?: return
         val descending = presenter.sortDescending()
         val items = mutableListOf(
@@ -1033,6 +1038,36 @@ class MangaDetailsController :
                 true
             }
         menuSheet.show()
+    }
+
+    private fun showVolumeMenu(header: VolumeHeaderItem) {
+        val activity = activity ?: return
+        val chapters = header.chapters
+        val notDownloaded = chapters.filter { it.status in listOf(Download.State.NOT_DOWNLOADED, Download.State.ERROR) }
+        val downloaded = chapters.filter { it.status != Download.State.NOT_DOWNLOADED }
+        val items = mutableListOf<MaterialMenuSheet.MenuSheetItem>()
+        if (notDownloaded.isNotEmpty() && !presenter.manga.isLocal()) {
+            items.add(MaterialMenuSheet.MenuSheetItem(0, R.drawable.ic_file_download_24dp, MR.strings.download))
+        }
+        if (chapters.any { !it.read }) {
+            items.add(MaterialMenuSheet.MenuSheetItem(1, R.drawable.ic_eye_24dp, MR.strings.mark_as_read))
+        }
+        if (chapters.any { it.read }) {
+            items.add(MaterialMenuSheet.MenuSheetItem(2, R.drawable.ic_eye_off_24dp, MR.strings.mark_as_unread))
+        }
+        if (downloaded.isNotEmpty()) {
+            items.add(MaterialMenuSheet.MenuSheetItem(3, R.drawable.ic_delete_24dp, MR.strings.remove_downloads))
+        }
+        MaterialMenuSheet(activity, items, header.name(activity)) { _, itemPos ->
+            when (itemPos) {
+                0 -> downloadChapters(notDownloaded)
+                1 -> markAsRead(chapters)
+                2 -> markAsUnread(chapters)
+                3 -> massDeleteChapters(downloaded, false)
+            }
+            if (itemPos == 1 || itemPos == 2) presenter.fetchChapters(false)
+            true
+        }.show()
     }
 
     override fun onActionStateChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {

@@ -47,6 +47,7 @@ data class ChapterDto(
     val id: Int? = -1,
     val range: String? = "",
     val number: String? = "-1",
+    val minNumber: Float? = null,
     val pages: Int? = 0,
     val isSpecial: Boolean? = false,
     val title: String? = "",
@@ -64,10 +65,22 @@ data class LibraryDto(
 
 /** What the manga details screen needs from the server to show volumes and the series type */
 data class KavitaSeriesLayout(
+    val libraryType: Int?,
     val isComic: Boolean,
-    /** Kavita chapter ID to its volume number, or null for loose chapters and specials */
-    val chapterVolumes: Map<Int, Float?>,
+    /** Keyed by Kavita chapter ID */
+    val chapters: Map<Int, KavitaChapterInfo>,
 )
+
+data class KavitaChapterInfo(
+    /** Null for loose chapters and specials */
+    val volume: Float?,
+    /** Null for whole volumes and specials */
+    val number: Float?,
+    val pages: Int,
+    val type: KavitaEntryType,
+)
+
+enum class KavitaEntryType { Volume, Chapter, Issue, Special }
 
 @Serializable
 data class AuthenticationDto(

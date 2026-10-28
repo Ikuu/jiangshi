@@ -366,50 +366,13 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
     }
 
     var checked = false
+    private var seriesTypes = emptyList<Int>()
+
     suspend fun checkForManhwa(sourceManager: SourceManager) {
+        checkSeriesTypes(sourceManager)
         if (checked) return
         withIOContext {
-            val libraryManga = controller?.presenter?.currentLibraryItems ?: return@withIOContext
             checked = true
-            var types = mutableSetOf<StringResource>()
-            libraryManga.forEach {
-                if (it !is LibraryMangaItem) return@forEach
-                when (it.manga.manga.seriesType(sourceManager = sourceManager)) {
-                    Manga.TYPE_MANHWA, Manga.TYPE_WEBTOON -> types.add(MR.strings.manhwa)
-                    Manga.TYPE_MANHUA -> types.add(MR.strings.manhua)
-                    Manga.TYPE_COMIC -> types.add(MR.strings.comic)
-                }
-                if (types.size == 3) return@forEach
-            }
-            val sortedTypes = arrayOf(MR.strings.manhwa, MR.strings.manhua, MR.strings.comic)
-            types = types.sortedBy { sortedTypes.indexOf(it) }.toMutableSet()
-            if (types.isNotEmpty()) {
-                launchUI {
-                    val mangaType = inflate(R.layout.filter_tag_group) as FilterTagGroup
-                    mangaType.setup(
-                        this@FilterBottomSheet,
-                        MR.strings.manga,
-                        *types.toTypedArray(),
-                    )
-                    this@FilterBottomSheet.mangaType = mangaType
-                    reorderFilters()
-                    reSortViews()
-                }
-            }
-            withUIContext {
-                mangaType?.setState(
-                    when (preferences.filterMangaType().get()) {
-                        Manga.TYPE_MANGA -> context.getString(MR.strings.manga)
-                        Manga.TYPE_MANHUA -> context.getString(MR.strings.manhua)
-                        Manga.TYPE_MANHWA -> context.getString(MR.strings.manhwa)
-                        Manga.TYPE_COMIC -> context.getString(MR.strings.comic)
-                        else -> ""
-                    },
-                )
-                reorderFilters()
-                reSortViews()
-            }
-
             if (filterItems.contains(tracked)) {
                 val loggedServices = Injekt.get<TrackManager>().services.filter { it.isLogged }
                 if (loggedServices.size > 1) {
@@ -433,6 +396,53 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * One button per series type in the library, so a library of only comics has no type filter and
+     * one with comics, manga and webtoons gets all three. Runs on every library update because
+     * Kavita series only become comics once their library type has been fetched.
+     */
+    suspend fun checkSeriesTypes(sourceManager: SourceManager) {
+        val libraryManga = controller?.presenter?.currentLibraryItems ?: return
+        val types = withIOContext {
+            val inLibrary = libraryManga.filterIsInstance<LibraryMangaItem>()
+                .map { it.manga.manga.seriesType(sourceManager = sourceManager) }
+                .toSet()
+            listOf(Manga.TYPE_MANGA, Manga.TYPE_MANHWA, Manga.TYPE_MANHUA, Manga.TYPE_COMIC, Manga.TYPE_WEBTOON)
+                .filter { it in inLibrary }
+        }
+        if (types == seriesTypes) return
+        seriesTypes = types
+        withUIContext {
+            val selected = preferences.filterMangaType().get()
+            if (selected > 0 && (types.size < 2 || selected !in types)) {
+                preferences.filterMangaType().set(0)
+                controller?.presenter?.requestFilterUpdate()
+            }
+            mangaType = if (types.size > 1) {
+                (inflate(R.layout.filter_tag_group) as FilterTagGroup).apply {
+                    val names = types.map { seriesTypeName(it) }
+                    setup(this@FilterBottomSheet, names.first(), *names.drop(1).toTypedArray())
+                    setState(seriesTypeName(preferences.filterMangaType().get()))
+                }
+            } else {
+                null
+            }
+            reorderFilters()
+            reSortViews()
+        }
+    }
+
+    private fun seriesTypeName(type: Int): String {
+        return when (type) {
+            Manga.TYPE_MANGA -> context.getString(MR.strings.manga)
+            Manga.TYPE_MANHUA -> context.getString(MR.strings.manhua)
+            Manga.TYPE_MANHWA -> context.getString(MR.strings.manhwa)
+            Manga.TYPE_COMIC -> context.getString(MR.strings.comic)
+            Manga.TYPE_WEBTOON -> context.getString(MR.strings.webtoon)
+            else -> ""
         }
     }
 
@@ -540,6 +550,7 @@ class FilterBottomSheet @JvmOverloads constructor(context: Context, attrs: Attri
                     context.getString(MR.strings.manhua) -> Manga.TYPE_MANHUA
                     context.getString(MR.strings.manhwa) -> Manga.TYPE_MANHWA
                     context.getString(MR.strings.comic) -> Manga.TYPE_COMIC
+                    context.getString(MR.strings.webtoon) -> Manga.TYPE_WEBTOON
                     else -> 0
                 }
                 preferences.filterMangaType().set(newIndex)

@@ -41,8 +41,12 @@ class ChapterHolder(
         val chapter = item.chapter
         val isLocked = item.isLocked
         itemView.transitionName = "details chapter ${chapter.id ?: 0L} transition"
-        binding.chapterTitle.text =
-            chapter.preferredChapterName(itemView.context, manga, adapter.preferences)
+        val preferredName = chapter.preferredChapterName(itemView.context, manga, adapter.preferences)
+        binding.chapterTitle.text = if (preferredName == chapter.name) {
+            adapter.presenter.numberedName(itemView.context, chapter, adapter.isComic)
+        } else {
+            preferredName
+        }
 
         binding.downloadButton.downloadButton.isVisible = !manga.isLocal() && !isLocked
         localSource = manga.isLocal()
@@ -54,19 +58,24 @@ class ChapterHolder(
         ChapterUtil.relativeDate(chapter)?.let { statuses.add(it) }
 
         val showPagesLeft = !chapter.read && chapter.last_page_read > 0 && !isLocked
+        val pageCount = adapter.presenter.pageCount(chapter)
 
         if (showPagesLeft) {
             statuses.add(
                 itemView.context.getString(
                     MR.strings.page_x_of_y,
                     chapter.last_page_read + 1,
-                    chapter.pages_left + chapter.last_page_read,
+                    pageCount ?: (chapter.pages_left + chapter.last_page_read),
                 ),
             )
+        } else if (pageCount != null) {
+            statuses.add(itemView.context.getString(MR.plurals.pages_plural, pageCount, pageCount))
         }
 
-        if (chapter.scanlator?.isNotBlank() == true) {
-            statuses.add(chapter.scanlator!!)
+        // With the server's data, volume rows already say what Kavita's "Chapter"/"Volume" label did
+        val scanlator = chapter.scanlator
+        if (scanlator?.isNotBlank() == true && !(pageCount != null && ChapterUtil.isEntryTypeLabel(scanlator))) {
+            statuses.add(scanlator)
         }
 
         if (binding.frontView.translationX == 0f) {

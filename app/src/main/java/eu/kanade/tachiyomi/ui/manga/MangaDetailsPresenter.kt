@@ -327,7 +327,32 @@ class MangaDetailsPresenter(
         }
         kavitaLayout = layout
         layout.libraryType?.let { KavitaLibraryTypes.putAll(mapOf(manga.url to it)) }
+        applyKavitaProgress()
         withUIContext { view?.updateChapters() }
+    }
+
+    /**
+     * Brings in what's been read on the Kavita server. The tracker only covers library series and
+     * goes by the last chapter read, so series being browsed would otherwise show as unread.
+     * Progress only moves forward here; marking unread stays a choice made in the app.
+     */
+    private suspend fun applyKavitaProgress() {
+        val updates = allChapters.mapNotNull { item ->
+            val info = kavitaInfo(item.chapter) ?: return@mapNotNull null
+            if (item.read || info.pages <= 0 || info.pagesRead <= 0) return@mapNotNull null
+            if (info.pagesRead >= info.pages) {
+                item.read = true
+            } else if (info.pagesRead > item.last_page_read) {
+                item.last_page_read = info.pagesRead
+                item.pages_left = info.pages - info.pagesRead
+            } else {
+                return@mapNotNull null
+            }
+            item.toProgressUpdate()
+        }
+        if (updates.isEmpty()) return
+        updateChapter.awaitAll(updates)
+        getChapters()
     }
 
     private fun kavitaInfo(chapter: Chapter): KavitaChapterInfo? {

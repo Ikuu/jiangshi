@@ -4,8 +4,11 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-29
+
 ### Additions
 - Tap a volume row to collapse or expand its chapters. Long-press still opens the volume's menu. Fully read volumes start collapsed, and each series remembers the volumes you open or close
+- Series whose tags and source don't set a reading mode switch to long strip when their pages turn out to be webtoon slices, with art that carries on from one page into the next. Separately drawn pages stay in paged mode
 
 ### Bug Fixes
 - Fixed Kavita series outside the library showing every chapter as unread. Opening a Kavita series now brings in what you've read on the server, and partly read chapters pick up at the page you reached

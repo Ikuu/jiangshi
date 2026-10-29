@@ -22,7 +22,7 @@ fun runCommand(command: String): String {
 @Suppress("PropertyName")
 val _versionName = "1.10.3"
 // Jiangshi's own version. versionCode stays Yokai's so upstream migrations still run.
-val jiangshiVersion = "1.1.0"
+val jiangshiVersion = "1.2.0"
 val betaCount by lazy {
     val betaTags = runCommand("git tag -l --sort=refname v${_versionName}-b*")
 

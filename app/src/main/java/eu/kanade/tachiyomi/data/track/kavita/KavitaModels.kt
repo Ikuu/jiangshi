@@ -77,6 +77,8 @@ data class KavitaChapterInfo(
     /** Null for whole volumes and specials */
     val number: Float?,
     val pages: Int,
+    /** The page the user is on in Kavita, or [pages] once it's finished */
+    val pagesRead: Int,
     val type: KavitaEntryType,
 )
 

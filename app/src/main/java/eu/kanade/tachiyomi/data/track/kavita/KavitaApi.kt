@@ -201,6 +201,7 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
                         number = (chapter.minNumber ?: chapter.number?.toFloatOrNull())
                             .takeIf { type == KavitaEntryType.Chapter || type == KavitaEntryType.Issue },
                         pages = chapter.pages ?: 0,
+                        pagesRead = chapter.pagesRead ?: 0,
                         type = type,
                     )
                 }

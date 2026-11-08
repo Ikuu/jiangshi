@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-08
+
 ### Bug Fixes
 - Fixed chapters marked unread on a Suwayomi server staying read in the app. This applies to series linked to the Suwayomi tracker with "Update tracking when marked as read" on
 - Library updates no longer change read status for Suwayomi series, which could undo chapters marked unread on the server. It syncs when a series is opened or refreshed

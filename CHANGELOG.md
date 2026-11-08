@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-08
+
 ### Additions
 - Suwayomi series bring in chapters read and the page you reached on the server when opened, and send your page back as you read. Marking chapters read or unread reaches the server too
 

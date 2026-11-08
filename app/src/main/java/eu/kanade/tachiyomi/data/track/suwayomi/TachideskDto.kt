@@ -35,4 +35,6 @@ data class ChapterNode(
     val id: Int,
     val chapterNumber: Float,
     val isRead: Boolean,
+    val lastPageRead: Int,
+    val pageCount: Int,
 )

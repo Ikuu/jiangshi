@@ -311,6 +311,7 @@ class MangaDetailsPresenter(
 
             setTrackItems()
             fetchKavitaLayout()
+            fetchSuwayomiProgress()
         }
 
         refreshTracking(false)
@@ -353,6 +354,40 @@ class MangaDetailsPresenter(
         if (updates.isEmpty()) return
         updateChapter.awaitAll(updates)
         getChapters()
+    }
+
+    /**
+     * Brings in chapters read and pages reached on the Suwayomi server. Progress only moves forward
+     * here, and chapters are matched by number. Changes made in the app are sent to the server.
+     */
+    private suspend fun fetchSuwayomiProgress() {
+        val suwayomi = Injekt.get<TrackManager>().suwayomi
+        if (!suwayomi.accept(source)) return
+        val remote = try {
+            suwayomi.api.getChapterProgress(suwayomi.seriesUrl(manga, tracks))
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not get Suwayomi progress for ${manga.url}" }
+            return
+        }.groupBy { it.chapterNumber }
+
+        val updates = allChapters.mapNotNull { item ->
+            if (item.read || item.chapter_number < 0f) return@mapNotNull null
+            val matches = remote[item.chapter_number] ?: return@mapNotNull null
+            val furthestPage = matches.maxOf { it.lastPageRead }
+            if (matches.any { it.isRead }) {
+                item.read = true
+            } else if (furthestPage > item.last_page_read) {
+                item.last_page_read = furthestPage
+                item.pages_left = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
+            } else {
+                return@mapNotNull null
+            }
+            item.toProgressUpdate()
+        }
+        if (updates.isEmpty()) return
+        updateChapter.awaitAll(updates)
+        getChapters()
+        withUIContext { view?.updateChapters() }
     }
 
     private fun kavitaInfo(chapter: Chapter): KavitaChapterInfo? {
@@ -745,6 +780,7 @@ class MangaDetailsPresenter(
                 view?.updateChapters()
             }
             fetchKavitaLayout()
+            fetchSuwayomiProgress()
         }
     }
 
@@ -799,6 +835,10 @@ class MangaDetailsPresenter(
                 it.toProgressUpdate()
             }
             updateChapter.awaitAll(updates)
+            presenterScope.launchNonCancellableIO {
+                Injekt.get<TrackManager>().suwayomi
+                    .updateChaptersRead(manga, selectedChapters.map { it.chapter_number }, read)
+            }
             if (read && deleteNow && preferences.removeAfterMarkedAsRead().get()) {
                 deleteChapters(selectedChapters, false)
             }

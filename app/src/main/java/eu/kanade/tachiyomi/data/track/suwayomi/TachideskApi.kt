@@ -11,9 +11,11 @@ import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
 import eu.kanade.tachiyomi.util.system.withIOContext
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -50,15 +52,10 @@ class TachideskApi {
     private val baseUrl by lazy { getPrefBaseUrl() }
     private val baseLogin by lazy { getPrefBaseLogin() }
     private val basePassword by lazy { getPrefBasePassword() }
+    private val chapterIdCache = ConcurrentHashMap<String, Map<Float, List<Int>>>()
 
     suspend fun getTrackSearch(trackUrl: String): TrackSearch = withIOContext {
-        val url = try {
-            // test if getting api url or manga id
-            val mangaId = trackUrl.toLong()
-            "$baseUrl/api/v1/manga/$mangaId"
-        } catch (e: NumberFormatException) {
-            trackUrl
-        }
+        val url = resolveMangaUrl(trackUrl)
 
         val manga = graphql<TrackedMangaData>(url, TRACKED_MANGA_QUERY, mangaIdVariables(url)).manga
 
@@ -87,8 +84,7 @@ class TachideskApi {
             .map { it.id }
 
         if (unreadIds.isNotEmpty()) {
-            val variables = buildJsonObject { putJsonArray("ids") { unreadIds.forEach { add(it) } } }
-            graphql<JsonObject>(url, MARK_CHAPTERS_READ_MUTATION, variables)
+            graphql<JsonObject>(url, MARK_CHAPTERS_READ_MUTATION, idsVariables(unreadIds))
         }
         // Marking chapters read over GraphQL doesn't update the trackers linked on the server
         graphql<JsonObject>(url, TRACK_PROGRESS_MUTATION, mangaIdVariables(url))
@@ -96,8 +92,55 @@ class TachideskApi {
         return getTrackSearch(track.tracking_url)
     }
 
-    private fun mangaIdVariables(mangaUrl: String): JsonObject =
-        buildJsonObject { put("id", mangaUrl.trimEnd('/').substringAfterLast('/').toInt()) }
+    suspend fun getChapterProgress(trackUrl: String): List<ChapterNode> = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+    }
+
+    suspend fun setPageProgress(trackUrl: String, chapterNumber: Float, page: Int) = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val ids = chapterIds(url, chapterNumber)
+        if (ids.isNotEmpty()) {
+            graphql<JsonObject>(url, SET_PAGE_MUTATION, idsVariables(ids) { put("page", page) })
+        }
+    }
+
+    suspend fun setChaptersRead(trackUrl: String, chapterNumbers: Set<Float>, read: Boolean) = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val chapters = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+        val ids = chapters.filter { it.chapterNumber in chapterNumbers && it.isRead != read }.map { it.id }
+        if (ids.isEmpty()) return@withIOContext
+
+        val mutation = if (read) MARK_CHAPTERS_READ_MUTATION else MARK_CHAPTERS_UNREAD_MUTATION
+        graphql<JsonObject>(url, mutation, idsVariables(ids))
+        if (read) graphql<JsonObject>(url, TRACK_PROGRESS_MUTATION, mangaIdVariables(url))
+    }
+
+    /**
+     * IDs of the server's chapters with this number. They're remembered so that page turns don't
+     * fetch a long series' whole chapter list each time. The server can't look up a chapter by its
+     * number directly, as that query fails on it with a type error.
+     */
+    private suspend fun chapterIds(url: String, chapterNumber: Float): List<Int> {
+        chapterIdCache[url]?.get(chapterNumber)?.let { return it }
+        val ids = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+            .groupBy({ it.chapterNumber }, { it.id })
+        chapterIdCache[url] = ids
+        return ids[chapterNumber].orEmpty()
+    }
+
+    /** Series are identified by either their numeric ID or their full API URL. */
+    private fun resolveMangaUrl(trackUrl: String): String =
+        trackUrl.toLongOrNull()?.let { "$baseUrl/api/v1/manga/$it" } ?: trackUrl
+
+    private fun mangaId(mangaUrl: String): Int = mangaUrl.trimEnd('/').substringAfterLast('/').toInt()
+
+    private fun mangaIdVariables(mangaUrl: String): JsonObject = buildJsonObject { put("id", mangaId(mangaUrl)) }
+
+    private fun idsVariables(ids: List<Int>, extra: JsonObjectBuilder.() -> Unit = {}): JsonObject = buildJsonObject {
+        putJsonArray("ids") { ids.forEach { add(it) } }
+        extra()
+    }
 
     /** Tracking URLs keep their REST form, so links made by earlier versions still work. */
     private suspend inline fun <reified T> graphql(mangaUrl: String, query: String, variables: JsonObject): T {
@@ -149,7 +192,23 @@ class TachideskApi {
         private const val MANGA_CHAPTERS_QUERY = """
             query MangaChapters(${'$'}id: Int!) {
                 manga(id: ${'$'}id) {
-                    chapters { nodes { id chapterNumber isRead } }
+                    chapters { nodes { id chapterNumber isRead lastPageRead pageCount } }
+                }
+            }
+        """
+
+        private const val SET_PAGE_MUTATION = """
+            mutation SetPage(${'$'}ids: [Int!]!, ${'$'}page: Int!) {
+                updateChapters(input: { ids: ${'$'}ids, patch: { lastPageRead: ${'$'}page } }) {
+                    chapters { id }
+                }
+            }
+        """
+
+        private const val MARK_CHAPTERS_UNREAD_MUTATION = """
+            mutation MarkChaptersUnread(${'$'}ids: [Int!]!) {
+                updateChapters(input: { ids: ${'$'}ids, patch: { isRead: false, lastPageRead: 0 } }) {
+                    chapters { id }
                 }
             }
         """

@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.download.model.DownloadQueue
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
@@ -44,6 +45,7 @@ import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.history.interactor.UpsertHistory
+import yokai.domain.manga.interactor.GetManga
 import yokai.domain.recents.RecentsPreferences
 import yokai.domain.recents.interactor.GetRecents
 import yokai.domain.ui.UiPreferences
@@ -62,6 +64,8 @@ class RecentsPresenter(
     private val getChapter: GetChapter by injectLazy()
     private val getRecents: GetRecents by injectLazy()
     private val updateChapter: UpdateChapter by injectLazy()
+    private val getManga: GetManga by injectLazy()
+    private val trackManager: TrackManager by injectLazy()
     private val getHistory: GetHistory by injectLazy()
     private val upsertHistory: UpsertHistory by injectLazy()
 
@@ -631,6 +635,9 @@ class RecentsPresenter(
             }
             updateChapter.await(chapter.toProgressUpdate())
             getRecents()
+            chapter.manga_id?.let { getManga.awaitById(it) }?.let { manga ->
+                trackManager.suwayomi.updateChaptersRead(manga, listOf(chapter.chapter_number), read)
+            }
         }
     }
 

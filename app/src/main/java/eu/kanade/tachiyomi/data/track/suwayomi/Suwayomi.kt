@@ -5,18 +5,25 @@ import android.graphics.Color
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.SourceManager
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import uy.kohesive.injekt.injectLazy
+import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
 class Suwayomi(private val context: Context, id: Long) : TrackService(id), EnhancedTrackService {
     val api by lazy { TachideskApi() }
+    private val preferences: PreferencesHelper by injectLazy()
+    private val sourceManager: SourceManager by injectLazy()
+    private val getTrack: GetTrack by injectLazy()
 
     override fun nameRes() = MR.strings.suwayomi
 
@@ -71,6 +78,22 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     override suspend fun update(track: Track, setToRead: Boolean): Track {
         updateTrackStatus(track, setToRead)
         return api.updateProgress(track)
+    }
+
+    /** The series on the server, from its tracker link if it has one. */
+    fun seriesUrl(manga: Manga, tracks: List<Track>): String =
+        tracks.find { it.sync_id == id }?.tracking_url ?: manga.url
+
+    /** Sends a change made in the app to the server, so the next sync doesn't undo it. */
+    suspend fun updateChaptersRead(manga: Manga, chapterNumbers: List<Float>, read: Boolean) {
+        if (!preferences.trackMarkedAsRead().get() || !accept(sourceManager.getOrStub(manga.source))) return
+        val numbers = chapterNumbers.filter { it >= 0f }.toSet()
+        if (numbers.isEmpty()) return
+        try {
+            api.setChaptersRead(seriesUrl(manga, getTrack.awaitAllByMangaId(manga.id)), numbers, read)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not update read chapters on Suwayomi for ${manga.url}" }
+        }
     }
 
     override suspend fun bind(track: Track): Track {

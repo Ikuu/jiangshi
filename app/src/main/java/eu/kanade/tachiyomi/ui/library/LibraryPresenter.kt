@@ -1571,6 +1571,13 @@ class LibraryPresenter(
         mangaList: HashMap<Manga, List<Chapter>>,
         markRead: Boolean,
     ) {
+        // Sent here rather than when marking, since nothing is final until the undo bar goes away
+        presenterScope.launchNonCancellableIO {
+            val suwayomi = Injekt.get<TrackManager>().suwayomi
+            mangaList.forEach { (manga, chapters) ->
+                suwayomi.updateChaptersRead(manga, chapters.map { it.chapter_number }, markRead)
+            }
+        }
         if (preferences.removeAfterMarkedAsRead().get() && markRead) {
             mangaList.forEach { (manga, oldChapters) ->
                 deleteChapters(manga, oldChapters)

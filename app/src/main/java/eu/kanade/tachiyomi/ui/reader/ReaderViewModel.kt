@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.LocalSource
@@ -56,6 +57,7 @@ import java.util.Date
 import java.util.concurrent.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -178,6 +180,7 @@ class ReaderViewModel(
     private var chapterItems = emptyList<ReaderChapterItem>()
 
     private var hasTrackers: Boolean = false
+    private var suwayomiPageSync: Job? = null
     private suspend fun checkTrackers(manga: Manga) = getTrack.awaitAllByMangaId(manga.id).isNotEmpty()
 
     init {
@@ -470,6 +473,8 @@ class ReaderViewModel(
                     pagesLeft = if (chapter.read) 0 else chapter.pages_left.toLong()
                 )
             )
+            val manga = manga ?: return@launchNonCancellableIO
+            Injekt.get<TrackManager>().suwayomi.updateChaptersRead(manga, listOf(chapter.chapter_number), chapter.read)
         }
     }
     fun toggleBookmark(chapter: Chapter) {
@@ -666,6 +671,33 @@ class ReaderViewModel(
                     pagesLeft = readerChapter.chapter.pages_left.toLong(),
                 )
             )
+            scheduleSuwayomiPageSync(readerChapter.chapter)
+        }
+    }
+
+    /** Waits for page turns to settle, so reading doesn't send a request for every page. */
+    private fun scheduleSuwayomiPageSync(chapter: Chapter) {
+        val manga = manga ?: return
+        val suwayomi = Injekt.get<TrackManager>().suwayomi
+        val page = chapter.last_page_read
+        val chapterNumber = chapter.chapter_number
+        if (
+            preferences.incognitoMode().get() || !preferences.autoUpdateTrack().get() ||
+            chapter.read || page <= 0 || chapterNumber < 0f || source?.let(suwayomi::accept) != true
+        ) {
+            return
+        }
+
+        suwayomiPageSync?.cancel()
+        suwayomiPageSync = launchIO {
+            delay(SUWAYOMI_PAGE_SYNC_DELAY)
+            try {
+                val url = suwayomi.seriesUrl(manga, getTrack.awaitAllByMangaId(manga.id))
+                suwayomi.api.setPageProgress(url, chapterNumber, page)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Logger.w(e) { "Could not update page progress on Suwayomi for ${manga.url}" }
+            }
         }
     }
 
@@ -1118,5 +1150,9 @@ class ReaderViewModel(
         data class SavedImage(val result: SaveImageResult) : Event()
         data class ShareImage(val file: UniFile, val page: ReaderPage, val extraPage: ReaderPage? = null) : Event()
         data class ShareTrackingError(val errors: List<Pair<TrackService, String?>>) : Event()
+    }
+
+    companion object {
+        private const val SUWAYOMI_PAGE_SYNC_DELAY = 5000L
     }
 }

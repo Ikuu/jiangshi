@@ -25,6 +25,10 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     private val sourceManager: SourceManager by injectLazy()
     private val getTrack: GetTrack by injectLazy()
 
+    // Chapters sync one by one when a series opens. The server's last read chapter is the most
+    // recently opened one, so going by it would undo chapters marked unread on the server.
+    override val syncsChaptersOnRefresh = false
+
     override fun nameRes() = MR.strings.suwayomi
 
     override fun getLogo() = R.drawable.ic_tracker_suwayomi

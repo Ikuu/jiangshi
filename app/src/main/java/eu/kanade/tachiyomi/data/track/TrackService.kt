@@ -67,6 +67,9 @@ abstract class TrackService(val id: Long) {
 
     abstract suspend fun update(track: Track, setToRead: Boolean = false): Track
 
+    /** Whether refreshing should mark chapters read from the tracker's last read chapter, and send that back. */
+    open val syncsChaptersOnRefresh: Boolean = true
+
     abstract suspend fun bind(track: Track): Track
 
     abstract suspend fun search(query: String): List<TrackSearch>

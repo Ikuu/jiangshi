@@ -357,8 +357,9 @@ class MangaDetailsPresenter(
     }
 
     /**
-     * Brings in chapters read and pages reached on the Suwayomi server. Progress only moves forward
-     * here, and chapters are matched by number. Changes made in the app are sent to the server.
+     * Brings in chapters read and pages reached on the Suwayomi server, matching chapters by number.
+     * Pages only move forward. A chapter goes back to unread only when reads normally reach the
+     * server, so that being unread there means it was unmarked and not that it was never sent.
      */
     private suspend fun fetchSuwayomiProgress() {
         val suwayomi = Injekt.get<TrackManager>().suwayomi
@@ -370,15 +371,28 @@ class MangaDetailsPresenter(
             return
         }.groupBy { it.chapterNumber }
 
+        val isLinked = tracks.any { it.sync_id == suwayomi.id }
+        val hasPendingUpdates = preferences.trackingsToAddOnline().get()
+            .any { it.startsWith("${manga.id}:${suwayomi.id}:") }
+        val serverDecidesUnread = isLinked && !hasPendingUpdates &&
+            preferences.autoUpdateTrack().get() && preferences.trackMarkedAsRead().get()
+
         val updates = allChapters.mapNotNull { item ->
-            if (item.read || item.chapter_number < 0f) return@mapNotNull null
+            if (item.chapter_number < 0f) return@mapNotNull null
             val matches = remote[item.chapter_number] ?: return@mapNotNull null
             val furthestPage = matches.maxOf { it.lastPageRead }
-            if (matches.any { it.isRead }) {
+            val pagesLeft = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
+            val isReadOnServer = matches.any { it.isRead }
+            if (item.read) {
+                if (isReadOnServer || !serverDecidesUnread) return@mapNotNull null
+                item.read = false
+                item.last_page_read = furthestPage
+                item.pages_left = pagesLeft
+            } else if (isReadOnServer) {
                 item.read = true
             } else if (furthestPage > item.last_page_read) {
                 item.last_page_read = furthestPage
-                item.pages_left = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
+                item.pages_left = pagesLeft
             } else {
                 return@mapNotNull null
             }
@@ -1254,7 +1268,9 @@ class MangaDetailsPresenter(
                             }
                             if (trackItem != null) {
                                 insertTrack.await(trackItem)
-                                syncChaptersWithTrackServiceTwoWay(chapters, trackItem, item.service)
+                                if (item.service.syncsChaptersOnRefresh) {
+                                    syncChaptersWithTrackServiceTwoWay(chapters, trackItem, item.service)
+                                }
                                 trackItem
                             } else {
                                 item.track

@@ -4,6 +4,9 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Bug Fixes
+- Fixed Suwayomi tracking failing with HTTP 404 on servers that no longer have the REST API. Progress still reaches any trackers linked on the server
+
 ## [1.2.0] - 2026-10-29
 
 ### Additions

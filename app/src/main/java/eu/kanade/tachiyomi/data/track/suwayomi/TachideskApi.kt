@@ -5,20 +5,28 @@ import android.content.SharedPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
-import eu.kanade.tachiyomi.network.PUT
+import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
 import eu.kanade.tachiyomi.util.system.withIOContext
-import java.nio.charset.Charset
 import java.security.MessageDigest
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import okhttp3.Credentials
 import okhttp3.Dns
-import okhttp3.FormBody
 import okhttp3.Headers
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.RequestBody.Companion.toRequestBody
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -52,18 +60,18 @@ class TachideskApi {
             trackUrl
         }
 
-        val manga = client.newCall(GET("$url/full", headers)).awaitSuccess().parseAs<MangaDataClass>()
+        val manga = graphql<TrackedMangaData>(url, TRACKED_MANGA_QUERY, mangaIdVariables(url)).manga
 
         TrackSearch.create(TrackManager.SUWAYOMI).apply {
             title = manga.title
             cover_url = "$url/thumbnail"
             summary = manga.description.orEmpty()
             tracking_url = url
-            total_chapters = manga.chapterCount
+            total_chapters = manga.chapters.totalCount
             publishing_status = manga.status
-            last_chapter_read = manga.lastChapterRead?.chapterNumber ?: 0F
+            last_chapter_read = manga.lastReadChapter?.chapterNumber ?: 0F
             status = when (manga.unreadCount) {
-                manga.chapterCount -> Suwayomi.UNREAD
+                manga.chapters.totalCount -> Suwayomi.UNREAD
                 0L -> Suwayomi.COMPLETED
                 else -> Suwayomi.READING
             }
@@ -72,21 +80,39 @@ class TachideskApi {
 
     suspend fun updateProgress(track: Track): Track {
         val url = track.tracking_url
-        val chapters = client.newCall(GET("$url/chapters", headers)).awaitSuccess().parseAs<List<ChapterDataClass>>()
-        val lastChapterIndex = chapters.first { it.chapterNumber == track.last_chapter_read }.index
+        val chapters = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+        // Chapters with an unknown number are -1, so they aren't "before" the one just read
+        val unreadIds = chapters
+            .filter { !it.isRead && it.chapterNumber in 0f..track.last_chapter_read }
+            .map { it.id }
 
-        client.newCall(
-            PUT(
-                "$url/chapter/$lastChapterIndex",
-                headers,
-                FormBody.Builder(Charset.forName("utf8"))
-                    .add("markPrevRead", "true")
-                    .add("read", "true")
-                    .build(),
-            ),
-        ).awaitSuccess()
+        if (unreadIds.isNotEmpty()) {
+            val variables = buildJsonObject { putJsonArray("ids") { unreadIds.forEach { add(it) } } }
+            graphql<JsonObject>(url, MARK_CHAPTERS_READ_MUTATION, variables)
+        }
+        // Marking chapters read over GraphQL doesn't update the trackers linked on the server
+        graphql<JsonObject>(url, TRACK_PROGRESS_MUTATION, mangaIdVariables(url))
 
         return getTrackSearch(track.tracking_url)
+    }
+
+    private fun mangaIdVariables(mangaUrl: String): JsonObject =
+        buildJsonObject { put("id", mangaUrl.trimEnd('/').substringAfterLast('/').toInt()) }
+
+    /** Tracking URLs keep their REST form, so links made by earlier versions still work. */
+    private suspend inline fun <reified T> graphql(mangaUrl: String, query: String, variables: JsonObject): T {
+        val body = buildJsonObject {
+            put("query", query)
+            put("variables", variables)
+        }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
+        val endpoint = "${mangaUrl.substringBefore("/api/v1/manga/")}/api/graphql"
+        val response = client.newCall(POST(endpoint, headers, body)).awaitSuccess().parseAs<JsonObject>()
+
+        // GraphQL reports failures with a 200 response
+        (response["errors"] as? JsonArray)?.firstOrNull()?.let { error ->
+            throw IllegalStateException(error.jsonObject["message"]?.jsonPrimitive?.content ?: "GraphQL request failed")
+        }
+        return json.decodeFromJsonElement(response.getValue("data"))
     }
 
     val tachideskExtensionId by lazy {
@@ -106,6 +132,43 @@ class TachideskApi {
         private const val LOGIN_DEFAULT = ""
         private const val PASSWORD_TITLE = "Password (Basic Auth)"
         private const val PASSWORD_DEFAULT = ""
+
+        private const val TRACKED_MANGA_QUERY = """
+            query TrackedManga(${'$'}id: Int!) {
+                manga(id: ${'$'}id) {
+                    title
+                    description
+                    status
+                    unreadCount
+                    lastReadChapter { chapterNumber }
+                    chapters { totalCount }
+                }
+            }
+        """
+
+        private const val MANGA_CHAPTERS_QUERY = """
+            query MangaChapters(${'$'}id: Int!) {
+                manga(id: ${'$'}id) {
+                    chapters { nodes { id chapterNumber isRead } }
+                }
+            }
+        """
+
+        private const val TRACK_PROGRESS_MUTATION = """
+            mutation TrackProgress(${'$'}id: Int!) {
+                trackProgress(input: { mangaId: ${'$'}id }) {
+                    trackRecords { id }
+                }
+            }
+        """
+
+        private const val MARK_CHAPTERS_READ_MUTATION = """
+            mutation MarkChaptersRead(${'$'}ids: [Int!]!) {
+                updateChapters(input: { ids: ${'$'}ids, patch: { isRead: true } }) {
+                    chapters { id }
+                }
+            }
+        """
     }
 
     private fun getPrefBaseUrl(): String = preferences.getString(ADDRESS_TITLE, ADDRESS_DEFAULT)!!

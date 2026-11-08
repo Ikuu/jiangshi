@@ -4,7 +4,10 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-08
+
 ### Bug Fixes
+- Fixed "The image couldn't be loaded" when rotating to landscape on AVIF pages, on devices whose system decoder can't read them
 - Fixed Suwayomi tracking failing with HTTP 404 on servers that no longer have the REST API. Progress still reaches any trackers linked on the server
 
 ## [1.2.0] - 2026-10-29

@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader
 
 import android.app.Application
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.annotation.ColorInt
 import androidx.lifecycle.SavedStateHandle
@@ -74,6 +73,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import okio.Buffer
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -891,10 +891,10 @@ class ReaderViewModel(
         val stream2 = page2.stream!!
         ImageUtil.findImageType(stream2) ?: throw Exception("Not an image")
         val imageBytes = stream1().readBytes()
-        val imageBitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        val imageBitmap = ImageUtil.decodeBitmap(Buffer().write(imageBytes))
 
         val imageBytes2 = stream2().readBytes()
-        val imageBitmap2 = BitmapFactory.decodeByteArray(imageBytes2, 0, imageBytes2.size)
+        val imageBitmap2 = ImageUtil.decodeBitmap(Buffer().write(imageBytes2))
 
         val stream = ImageUtil.mergeBitmaps(imageBitmap, imageBitmap2, isLTR, bg).inputStream()
 

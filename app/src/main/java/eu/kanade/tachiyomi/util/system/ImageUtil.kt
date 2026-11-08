@@ -130,6 +130,26 @@ object ImageUtil {
         return ImageDecoder.findType(bytes)
     }
 
+    /**
+     * Decodes a whole image without consuming [source]. AVIF, JXL and HEIF go through the bundled
+     * decoder, as they do when a page is displayed, since the system's support for them varies by
+     * device. Throws if the image can't be decoded, where BitmapFactory would return null.
+     */
+    fun decodeBitmap(source: BufferedSource): Bitmap {
+        val type = findImageType(source.peek().inputStream())
+        if (type != ImageType.AVIF && type != ImageType.JXL && type != ImageType.HEIF) {
+            BitmapFactory.decodeStream(source.peek().inputStream())?.let { return it }
+        }
+        val decoder = checkNotNull(ImageDecoder.newInstance(source.peek().inputStream())) {
+            "Failed to initialize decoder."
+        }
+        return try {
+            checkNotNull(decoder.decode()) { "Failed to decode image." }
+        } finally {
+            decoder.recycle()
+        }
+    }
+
     fun autoSetBackground(image: Bitmap?, alwaysUseWhite: Boolean, context: Context): Drawable {
         val backgroundColor = if (alwaysUseWhite) {
             Color.WHITE
@@ -358,7 +378,7 @@ object ImageUtil {
         hasMargins: Boolean,
         progressCallback: ((Int) -> Unit)? = null,
     ): BufferedSource {
-        val imageBitmap = BitmapFactory.decodeStream(imageSource.inputStream())
+        val imageBitmap = decodeBitmap(imageSource)
 
         val height = imageBitmap.height
         val width = imageBitmap.width

@@ -132,40 +132,33 @@ class LibraryUpdateNotifier(private val context: Context) {
     }
 
     /**
-     * Shows notification containing update entries that were skipped with actions to open full log and learn more.
+     * Shows notification containing update entries that were skipped, saying why, with an action to
+     * open the full log.
      *
-     * @param skips List of entry titles that were skipped.
+     * @param skips Titles that were skipped, grouped by the reason they were skipped.
      * @param uri Uri for error log file containing all titles that were skipped.
      */
-    fun showUpdateSkippedNotification(skips: List<String>, uri: Uri) {
+    fun showUpdateSkippedNotification(skips: Map<String, List<String>>, uri: Uri) {
         if (skips.isEmpty()) {
             return
         }
 
+        val openLog = NotificationReceiver.openErrorOrSkippedLogPendingActivity(context, uri)
         context.notificationManager.notify(
             Notifications.ID_LIBRARY_SKIPPED,
             context.notificationBuilder(Notifications.CHANNEL_LIBRARY_SKIPPED) {
-                setContentTitle(context.getString(MR.strings.notification_update_skipped, skips.size))
-                setContentText(context.getString(MR.strings.tap_to_learn_more))
+                setContentTitle(context.getString(MR.strings.notification_update_skipped, skips.values.sumOf { it.size }))
+                setContentText(skips.keys.singleOrNull() ?: context.getString(MR.strings.skipped_for_several_reasons))
                 setStyle(
                     NotificationCompat.BigTextStyle().bigText(
-                        skips.joinToString("\n") {
-                            it.chop(TITLE_MAX_LEN)
+                        skips.entries.joinToString("\n\n") { (reason, titles) ->
+                            "$reason:\n" + titles.joinToString("\n") { it.chop(TITLE_MAX_LEN) }
                         },
                     ),
                 )
-                setContentIntent(NotificationHandler.openUrl(context, HELP_SKIPPED_URL))
+                setContentIntent(openLog)
                 setSmallIcon(R.drawable.ic_yokai)
-                addAction(
-                    R.drawable.ic_file_open_24dp,
-                    context.getString(MR.strings.open_log),
-                    NotificationReceiver.openErrorOrSkippedLogPendingActivity(context, uri),
-                )
-                addAction(
-                    R.drawable.ic_help_outline_24dp,
-                    context.getString(MR.strings.learn_why),
-                    NotificationHandler.openUrl(context, HELP_SKIPPED_URL),
-                )
+                addAction(R.drawable.ic_file_open_24dp, context.getString(MR.strings.open_log), openLog)
             }
                 .build(),
         )
@@ -345,7 +338,6 @@ class LibraryUpdateNotifier(private val context: Context) {
         private const val MAX_CHAPTERS = 5
         private const val TITLE_MAX_LEN = 45
         private const val ICON_SIZE = 192
-        const val HELP_SKIPPED_URL = "https://tachiyomi.org/docs/faq/library#why-is-global-update-skipping-entries"
         const val HELP_WARNING_URL = "https://tachiyomi.org/docs/faq/library#why-am-i-warned-about-large-bulk-updates-and-downloads"
     }
 }

@@ -364,12 +364,11 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
         }
         newUpdates.clear()
         if (skippedUpdates.isNotEmpty() && Notifications.isNotificationChannelEnabled(context, Notifications.CHANNEL_LIBRARY_SKIPPED)) {
-            val skippedFile = writeErrorFile(
-                skippedUpdates,
-                "skipped",
-                context.getString(MR.strings.learn_why) + " - " + LibraryUpdateNotifier.HELP_SKIPPED_URL,
-            ).getUriCompat(context)
-            notifier.showUpdateSkippedNotification(skippedUpdates.map { it.key.title }, skippedFile)
+            val skippedFile = writeErrorFile(skippedUpdates, "skipped").getUriCompat(context)
+            notifier.showUpdateSkippedNotification(
+                skippedUpdates.entries.groupBy({ it.value.orEmpty() }, { it.key.title }),
+                skippedFile,
+            )
         }
         if (failedUpdates.isNotEmpty() && Notifications.isNotificationChannelEnabled(context, Notifications.CHANNEL_LIBRARY_ERROR)) {
             val errorFile = writeErrorFile(failedUpdates).getUriCompat(context)

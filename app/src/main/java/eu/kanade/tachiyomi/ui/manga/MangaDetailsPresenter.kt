@@ -39,6 +39,7 @@ import eu.kanade.tachiyomi.data.track.kavita.KavitaChapterInfo
 import eu.kanade.tachiyomi.data.track.kavita.KavitaEntryType
 import eu.kanade.tachiyomi.data.track.kavita.KavitaLibraryTypes
 import eu.kanade.tachiyomi.data.track.kavita.KavitaSeriesLayout
+import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.NetworkPreferences
@@ -312,6 +313,7 @@ class MangaDetailsPresenter(
             setTrackItems()
             fetchKavitaLayout()
             fetchSuwayomiProgress()
+            fetchSuwayomiServerTrackers()
         }
 
         refreshTracking(false)
@@ -354,6 +356,16 @@ class MangaDetailsPresenter(
         if (updates.isEmpty()) return
         updateChapter.awaitAll(updates)
         getChapters()
+    }
+
+    /** Trackers linked on the Suwayomi server, for the tracking sheet. */
+    private suspend fun fetchSuwayomiServerTrackers() {
+        val suwayomi = Injekt.get<TrackManager>().suwayomi
+        val track = tracks.find { it.sync_id == suwayomi.id } ?: return
+        if (!suwayomi.accept(source)) return
+        suwayomi.loadServerTrackers(track)
+        setTrackItems()
+        withUIContext { view?.refreshTracking(trackList) }
     }
 
     /**
@@ -795,6 +807,7 @@ class MangaDetailsPresenter(
             }
             fetchKavitaLayout()
             fetchSuwayomiProgress()
+            fetchSuwayomiServerTrackers()
         }
     }
 
@@ -1244,7 +1257,8 @@ class MangaDetailsPresenter(
             if (service !is EnhancedTrackService) return@filter true
             service.accept(source)
         }.map { service ->
-            TrackItem(tracks.find { it.sync_id == service.id }, service)
+            val track = tracks.find { it.sync_id == service.id }
+            TrackItem(track, service, (service as? Suwayomi)?.serverTrackers(track).orEmpty())
         }
     }
 

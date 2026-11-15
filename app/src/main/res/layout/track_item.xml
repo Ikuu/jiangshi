@@ -110,7 +110,7 @@
             android:id="@+id/sub_tracking_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/server_trackers_divider"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/divider">
@@ -270,6 +270,32 @@
                 android:layout_height="wrap_content"
                 app:constraint_referenced_ids="vert_divider_3,bottom_divider,track_start_date,track_finish_date" />
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <View
+            android:id="@+id/server_trackers_divider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:alpha="0.25"
+            android:background="@color/strong_divider"
+            android:visibility="gone"
+            app:layout_constraintBottom_toTopOf="@id/server_trackers"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/sub_tracking_layout" />
+
+        <TextView
+            android:id="@+id/server_trackers"
+            style="?textAppearanceBodySecondary"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/server_trackers_divider"
+            tools:text="Linked on the server\nAniList: Reading, chapter 120"
+            tools:visibility="visible" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/add_tracking"

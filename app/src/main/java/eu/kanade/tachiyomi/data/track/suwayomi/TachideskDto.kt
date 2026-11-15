@@ -38,3 +38,39 @@ data class ChapterNode(
     val lastPageRead: Int,
     val pageCount: Int,
 )
+
+@Serializable
+data class ServerTrackersData(val manga: ServerTrackersManga, val chapters: ReadChapterNodes)
+
+@Serializable
+data class ServerTrackersManga(val trackRecords: ServerTrackRecordNodes)
+
+@Serializable
+data class ServerTrackRecordNodes(val nodes: List<ServerTrackRecord>)
+
+@Serializable
+data class ServerTrackRecord(val lastChapterRead: Float, val status: Int, val tracker: ServerTracker)
+
+@Serializable
+data class ServerTracker(
+    val name: String,
+    val isLoggedIn: Boolean,
+    val isTokenExpired: Boolean,
+    val statuses: List<ServerTrackStatus>,
+)
+
+@Serializable
+data class ServerTrackStatus(val name: String, val value: Int)
+
+@Serializable
+data class ReadChapterNodes(val nodes: List<LastReadChapter>)
+
+/** A tracker linked to the series on the Suwayomi server, as shown in the tracking sheet. */
+data class ServerTrackerInfo(
+    val name: String,
+    val status: String?,
+    val lastChapterRead: Float,
+    /** The server didn't pass on the latest chapter read there. */
+    val isBehind: Boolean,
+    val isSignedOut: Boolean,
+)

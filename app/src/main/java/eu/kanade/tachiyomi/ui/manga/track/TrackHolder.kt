@@ -5,6 +5,9 @@ import android.content.res.ColorStateList
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.graphics.ColorUtils
+import androidx.core.text.bold
+import androidx.core.text.buildSpannedString
+import androidx.core.text.color
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.widget.TextViewCompat
@@ -16,6 +19,8 @@ import eu.kanade.tachiyomi.ui.base.holder.BaseViewHolder
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.setText
 import java.text.DateFormat
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import uy.kohesive.injekt.injectLazy
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -28,6 +33,7 @@ class TrackHolder(view: View, adapter: TrackAdapter) : BaseViewHolder(view) {
     private val dateFormat: DateFormat by lazy {
         preferences.dateFormat()
     }
+    private val decimalFormat = DecimalFormat("#.###", DecimalFormatSymbols().apply { decimalSeparator = '.' })
 
     init {
         val listener = adapter.rowClickListener
@@ -130,6 +136,38 @@ class TrackHolder(view: View, adapter: TrackAdapter) : BaseViewHolder(view) {
                         }
                     setTextColor(enabledTextColor(track.finished_reading_date != 0L))
                 }
+            }
+        }
+        bindServerTrackers(item)
+    }
+
+    /** What the Suwayomi server's own trackers have, so problems pushing to them can be seen. */
+    private fun bindServerTrackers(item: TrackItem) {
+        val trackers = item.serverTrackers.takeIf { item.track != null }.orEmpty()
+        binding.serverTrackers.isVisible = trackers.isNotEmpty()
+        binding.serverTrackersDivider.isVisible = trackers.isNotEmpty()
+        if (trackers.isEmpty()) return
+        val context = binding.root.context
+        val errorColor = context.getResourceColor(R.attr.colorError)
+        binding.serverTrackers.text = buildSpannedString {
+            append(context.getString(MR.strings.server_trackers_title))
+            trackers.forEach { tracker ->
+                append("\n")
+                bold { append(tracker.name) }
+                append(": ")
+                val details = listOfNotNull(
+                    tracker.status,
+                    tracker.lastChapterRead.takeIf { it > 0 }?.let {
+                        context.getString(MR.strings.chapter_, decimalFormat.format(it))
+                    },
+                )
+                append(details.joinToString(", ").ifEmpty { context.getString(MR.strings.not_started) })
+                val problem = when {
+                    tracker.isSignedOut -> context.getString(MR.strings.server_tracker_signed_out)
+                    tracker.isBehind -> context.getString(MR.strings.server_tracker_behind)
+                    else -> null
+                }
+                if (problem != null) color(errorColor) { append(" · $problem") }
             }
         }
     }

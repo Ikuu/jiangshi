@@ -77,6 +77,23 @@ class TachideskApi {
         return getTrackSearch(track.tracking_url)
     }
 
+    /** Trackers linked to the series on the server, and whether they have the latest chapter read there. */
+    suspend fun getServerTrackers(trackUrl: String): List<ServerTrackerInfo> = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val data = graphql<ServerTrackersData>(url, SERVER_TRACKERS_QUERY, mangaIdVariables(url))
+        // Trackers only take whole chapters, so 10.5 read on the server is 10 on the tracker
+        val lastRead = data.chapters.nodes.firstOrNull()?.chapterNumber?.toInt() ?: 0
+        data.manga.trackRecords.nodes.map { record ->
+            ServerTrackerInfo(
+                name = record.tracker.name,
+                status = record.tracker.statuses.find { it.value == record.status }?.name,
+                lastChapterRead = record.lastChapterRead,
+                isBehind = record.lastChapterRead < lastRead,
+                isSignedOut = !record.tracker.isLoggedIn || record.tracker.isTokenExpired,
+            )
+        }
+    }
+
     suspend fun getChapterProgress(trackUrl: String): List<ChapterNode> = withIOContext {
         val url = resolveMangaUrl(trackUrl)
         graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
@@ -156,6 +173,28 @@ class TachideskApi {
                     unreadCount
                     lastReadChapter { chapterNumber }
                     chapters { totalCount }
+                }
+            }
+        """
+
+        private const val SERVER_TRACKERS_QUERY = """
+            query ServerTrackers(${'$'}id: Int!) {
+                manga(id: ${'$'}id) {
+                    trackRecords {
+                        nodes {
+                            lastChapterRead
+                            status
+                            tracker { name isLoggedIn isTokenExpired statuses { name value } }
+                        }
+                    }
+                }
+                chapters(
+                    condition: { mangaId: ${'$'}id, isRead: true }
+                    orderBy: CHAPTER_NUMBER
+                    orderByType: DESC
+                    first: 1
+                ) {
+                    nodes { chapterNumber }
                 }
             }
         """

@@ -4,6 +4,9 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Additions
+- The Suwayomi tracker in the tracking sheet lists the trackers linked to the series on the server, with their status and last chapter read. Trackers behind the server or signed out there are marked in red
+
 ## [1.3.1] - 2026-11-08
 
 ### Bug Fixes

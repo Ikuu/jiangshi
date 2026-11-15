@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import uy.kohesive.injekt.injectLazy
@@ -24,6 +25,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     private val preferences: PreferencesHelper by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
     private val getTrack: GetTrack by injectLazy()
+    private val serverTrackers = ConcurrentHashMap<String, List<ServerTrackerInfo>>()
 
     // Chapters sync one by one when a series opens. The server's last read chapter is the most
     // recently opened one, so going by it would undo chapters marked unread on the server.
@@ -76,12 +78,28 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     override suspend fun add(track: Track): Track {
         track.status = READING
         updateNewTrackInfo(track)
-        return api.updateProgress(track)
+        return api.updateProgress(track).also { loadServerTrackers(it) }
     }
 
     override suspend fun update(track: Track, setToRead: Boolean): Track {
         updateTrackStatus(track, setToRead)
-        return api.updateProgress(track)
+        return api.updateProgress(track).also { loadServerTrackers(it) }
+    }
+
+    /** Trackers linked to the series on the server, as of the last refresh or update. */
+    fun serverTrackers(track: Track?): List<ServerTrackerInfo> =
+        track?.let { serverTrackers[seriesId(it)] }.orEmpty()
+
+    /** Tracking URLs are either the series' ID or its API URL ending in the ID. */
+    private fun seriesId(track: Track) = track.tracking_url.trimEnd('/').substringAfterLast('/')
+
+    /** Only for display, so a server too old to list its trackers still tracks as before. */
+    suspend fun loadServerTrackers(track: Track) {
+        try {
+            serverTrackers[seriesId(track)] = api.getServerTrackers(track.tracking_url)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not get the trackers linked on Suwayomi for ${track.tracking_url}" }
+        }
     }
 
     /** The series on the server, from its tracker link if it has one. */
@@ -112,6 +130,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         val remoteTrack = api.getTrackSearch(track.tracking_url)
         track.copyPersonalFrom(remoteTrack)
         track.total_chapters = remoteTrack.total_chapters
+        loadServerTrackers(track)
         return track
     }
 

@@ -4,8 +4,14 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-15
+
 ### Additions
 - The Suwayomi tracker in the tracking sheet lists the trackers linked to the series on the server, with their status and last chapter read. Trackers behind the server or signed out there are marked in red
+
+### Bug Fixes
+- Fixed Suwayomi tracking failing with "Unauthorized" on servers that use UI Login. Tracking now signs in the same way as the Suwayomi extension
+- The skipped updates notification says why series were skipped, and tapping it opens the list of skipped series in place of a help page that no longer exists
 
 ## [1.3.1] - 2026-11-08
 

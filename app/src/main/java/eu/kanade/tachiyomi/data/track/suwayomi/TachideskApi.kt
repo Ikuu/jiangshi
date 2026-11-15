@@ -1,16 +1,14 @@
 package eu.kanade.tachiyomi.data.track.suwayomi
 
-import android.app.Application
-import android.content.SharedPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
-import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
+import eu.kanade.tachiyomi.source.SourceManager
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.withIOContext
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -23,35 +21,22 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import okhttp3.Credentials
-import okhttp3.Dns
-import okhttp3.Headers
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 
 class TachideskApi {
     private val json: Json by injectLazy()
-    private val network by injectLazy<NetworkHelper>()
-    val client: OkHttpClient =
-        network.client.newBuilder()
-            .dns(Dns.SYSTEM) // don't use DNS over HTTPS as it breaks IP addressing
-            .build()
-    fun headersBuilder(): Headers.Builder = Headers.Builder().apply {
-        if (basePassword.isNotEmpty() && baseLogin.isNotEmpty()) {
-            val credentials = Credentials.basic(baseLogin, basePassword)
-            add("Authorization", credentials)
-        }
-    }
+    private val sourceManager: SourceManager by injectLazy()
 
-    val headers: Headers by lazy { headersBuilder().build() }
+    /**
+     * The installed Suwayomi extension. Requests go through its client so they're signed in the
+     * same way as the extension, whichever login mode the server uses.
+     */
+    private val source: HttpSource
+        get() = sourceManager.getOnlineSources().find { it::class.qualifiedName == SOURCE_CLASS }
+            ?: throw IllegalStateException("The Suwayomi extension isn't installed")
 
-    private val baseUrl by lazy { getPrefBaseUrl() }
-    private val baseLogin by lazy { getPrefBaseLogin() }
-    private val basePassword by lazy { getPrefBasePassword() }
     private val chapterIdCache = ConcurrentHashMap<String, Map<Float, List<Int>>>()
 
     suspend fun getTrackSearch(trackUrl: String): TrackSearch = withIOContext {
@@ -131,7 +116,7 @@ class TachideskApi {
 
     /** Series are identified by either their numeric ID or their full API URL. */
     private fun resolveMangaUrl(trackUrl: String): String =
-        trackUrl.toLongOrNull()?.let { "$baseUrl/api/v1/manga/$it" } ?: trackUrl
+        trackUrl.toLongOrNull()?.let { "${source.baseUrl.trimEnd('/')}/api/v1/manga/$it" } ?: trackUrl
 
     private fun mangaId(mangaUrl: String): Int = mangaUrl.trimEnd('/').substringAfterLast('/').toInt()
 
@@ -149,7 +134,8 @@ class TachideskApi {
             put("variables", variables)
         }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
         val endpoint = "${mangaUrl.substringBefore("/api/v1/manga/")}/api/graphql"
-        val response = client.newCall(POST(endpoint, headers, body)).awaitSuccess().parseAs<JsonObject>()
+        val extension = source
+        val response = extension.client.newCall(POST(endpoint, extension.headers, body)).awaitSuccess().parseAs<JsonObject>()
 
         // GraphQL reports failures with a 200 response
         (response["errors"] as? JsonArray)?.firstOrNull()?.let { error ->
@@ -158,23 +144,8 @@ class TachideskApi {
         return json.decodeFromJsonElement(response.getValue("data"))
     }
 
-    val tachideskExtensionId by lazy {
-        val key = "tachidesk/en/1"
-        val bytes = MessageDigest.getInstance("MD5").digest(key.toByteArray())
-        (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }.reduce(Long::or) and Long.MAX_VALUE
-    }
-
-    private val preferences: SharedPreferences by lazy {
-        Injekt.get<Application>().getSharedPreferences("source_$tachideskExtensionId", 0x0000)
-    }
-
     companion object {
-        private const val ADDRESS_TITLE = "Server URL Address"
-        private const val ADDRESS_DEFAULT = ""
-        private const val LOGIN_TITLE = "Login (Basic Auth)"
-        private const val LOGIN_DEFAULT = ""
-        private const val PASSWORD_TITLE = "Password (Basic Auth)"
-        private const val PASSWORD_DEFAULT = ""
+        const val SOURCE_CLASS = "eu.kanade.tachiyomi.extension.all.tachidesk.Tachidesk"
 
         private const val TRACKED_MANGA_QUERY = """
             query TrackedManga(${'$'}id: Int!) {
@@ -229,8 +200,4 @@ class TachideskApi {
             }
         """
     }
-
-    private fun getPrefBaseUrl(): String = preferences.getString(ADDRESS_TITLE, ADDRESS_DEFAULT)!!
-    private fun getPrefBaseLogin(): String = preferences.getString(LOGIN_TITLE, LOGIN_DEFAULT)!!
-    private fun getPrefBasePassword(): String = preferences.getString(PASSWORD_TITLE, PASSWORD_DEFAULT)!!
 }

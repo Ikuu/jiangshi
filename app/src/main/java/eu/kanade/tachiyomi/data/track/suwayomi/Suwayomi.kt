@@ -124,7 +124,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         saveCredentials("user", "pass")
     }
 
-    override fun getAcceptedSources(): List<String> = listOf("eu.kanade.tachiyomi.extension.all.tachidesk.Tachidesk")
+    override fun getAcceptedSources(): List<String> = listOf(TachideskApi.SOURCE_CLASS)
 
     override suspend fun match(manga: Manga): TrackSearch? =
         try {

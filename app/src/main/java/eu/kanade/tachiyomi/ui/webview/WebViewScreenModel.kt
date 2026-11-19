@@ -2,7 +2,7 @@ package eu.kanade.tachiyomi.ui.webview
 
 import android.content.Context
 import android.content.Intent
-import cafe.adriel.voyager.core.model.StateScreenModel
+import cafe.adriel.voyager.core.model.ScreenModel
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.SourceManager
@@ -14,14 +14,13 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.i18n.MR
-import yokai.presentation.StatsScreenState
 import yokai.util.lang.getString
 
 class WebViewScreenModel(
     val sourceId: Long?,
     private val sourceManager: SourceManager = Injekt.get(),
     private val network: NetworkHelper = Injekt.get(),
-) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
+) : ScreenModel {
 
     var headers = emptyMap<String, String>()
 

@@ -268,7 +268,6 @@ dependencies {
     implementation(libs.conscrypt)
 
     // Android Chart
-    implementation(libs.mpandroidchart)
 
     implementation(kotlinx.immutable)
 

@@ -15,6 +15,8 @@ data class Backup(
     @ProtoNumber(101) var backupSources: List<BackupSource> = emptyList(),
     @ProtoNumber(104) var backupPreferences: List<BackupPreference> = emptyList(),
     @ProtoNumber(105) var backupSourcePreferences: List<BackupSourcePreferences> = emptyList(),
+    // Jiangshi only, numbered well clear of fields other forks add
+    @ProtoNumber(900) var backupReadingSessions: List<BackupReadingSession> = emptyList(),
 ) {
 
     companion object {

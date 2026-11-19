@@ -10,7 +10,6 @@ import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.library.filter.FilterBottomSheet
-import eu.kanade.tachiyomi.ui.more.stats.details.StatsDetailsController
 import eu.kanade.tachiyomi.util.system.contextCompatDrawable
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.view.hide
@@ -128,19 +127,7 @@ class FilteredLibraryController(bundle: Bundle? = null) : LibraryController(bund
 
     override fun onChangeStarted(handler: ControllerChangeHandler, type: ControllerChangeType) {
         super.onChangeStarted(handler, type)
-        if (type == ControllerChangeType.POP_ENTER) {
-            updateStatsPage()
-        }
         binding.filterBottomSheet.root.sheetBehavior?.hide()
-    }
-
-    override fun deleteMangasFromLibrary() {
-        super.deleteMangasFromLibrary()
-        updateStatsPage()
-    }
-
-    fun updateStatsPage() {
-        (previousController as? StatsDetailsController)?.updateLibrary()
     }
 
     override fun showSheet() { }

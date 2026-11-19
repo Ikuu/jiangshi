@@ -2,7 +2,9 @@ package eu.kanade.tachiyomi.data.backup.restore
 
 import android.content.Context
 import android.net.Uri
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.backup.BackupNotifier
+import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesBackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaBackupRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceBackupRestorer
@@ -10,6 +12,8 @@ import eu.kanade.tachiyomi.util.BackupUtil
 import eu.kanade.tachiyomi.util.system.createFileInCacheDir
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
+import uy.kohesive.injekt.injectLazy
+import yokai.domain.stats.interactor.InsertReadingSession
 import yokai.i18n.MR
 import yokai.util.lang.getString
 import java.io.File
@@ -23,6 +27,7 @@ class BackupRestorer(
     private val mangaBackupRestorer: MangaBackupRestorer = MangaBackupRestorer(),
     private val preferenceBackupRestorer: PreferenceBackupRestorer = PreferenceBackupRestorer(context),
 ) {
+    private val insertReadingSession: InsertReadingSession by injectLazy()
     private var restoreAmount = 0
     private var restoreProgress = 0
 
@@ -51,7 +56,7 @@ class BackupRestorer(
     private suspend fun performRestore(uri: Uri) {
         val backup = BackupUtil.decodeBackup(context, uri)
 
-        restoreAmount = backup.backupManga.size + 3 // +3 for categories, app prefs, source prefs
+        restoreAmount = backup.backupManga.size + 4 // +4 for categories, app prefs, source prefs, reading stats
 
         sourceMapping = backup.backupSources.associate { it.sourceId to it.name }
 
@@ -76,6 +81,9 @@ class BackupRestorer(
                 showRestoreProgress(restoreProgress, restoreAmount, context.getString(MR.strings.source_settings))
             }
 
+            ensureActive()
+            restoreReadingSessions(backup.backupReadingSessions)
+
             // Restore individual manga
             backup.backupManga.forEach {
                 ensureActive()
@@ -94,6 +102,19 @@ class BackupRestorer(
             }
         }
         // TODO: optionally trigger online library + tracker update
+    }
+
+    private suspend fun restoreReadingSessions(sessions: List<BackupReadingSession>) {
+        try {
+            if (sessions.isNotEmpty()) {
+                insertReadingSession.awaitAll(sessions.map { it.toReadingSession() })
+            }
+        } catch (e: Exception) {
+            Logger.e(e) { "Unable to restore reading stats" }
+            errors.add(Date() to "${context.getString(MR.strings.statistics)}: ${e.message}")
+        }
+        restoreProgress += 1
+        showRestoreProgress(restoreProgress, restoreAmount, context.getString(MR.strings.statistics))
     }
 
     /**

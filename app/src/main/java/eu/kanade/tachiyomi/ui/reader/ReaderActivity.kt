@@ -1313,12 +1313,14 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
 
     override fun onPause() {
         viewModel.flushReadTimer()
+        viewModel.pauseReadingSession()
         super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
         viewModel.restartReadTimer()
+        viewModel.resumeReadingSession()
     }
 
     fun reloadChapters(doublePages: Boolean, force: Boolean = false) {

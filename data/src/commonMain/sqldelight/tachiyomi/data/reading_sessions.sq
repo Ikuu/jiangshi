@@ -1,0 +1,66 @@
+-- One row per stretch of reading a chapter, written when the reader is paused or moves to another chapter.
+-- Series and chapters are stored by source and URL (like backups), with title and type copied in,
+-- so stats survive clearing history, removing a series from the library, and restoring a backup.
+CREATE TABLE reading_sessions(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_source INTEGER NOT NULL,
+    manga_url TEXT NOT NULL,
+    manga_title TEXT NOT NULL,
+    series_type INTEGER NOT NULL,
+    chapter_url TEXT NOT NULL,
+    chapter_number REAL NOT NULL,
+    started_at INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    pages_read INTEGER NOT NULL,
+    completed INTEGER NOT NULL,
+    UNIQUE(manga_source, manga_url, chapter_url, started_at)
+);
+
+CREATE INDEX reading_sessions_started_at_index ON reading_sessions(started_at);
+CREATE INDEX reading_sessions_manga_index ON reading_sessions(manga_source, manga_url);
+
+insert:
+INSERT OR IGNORE INTO reading_sessions(
+    manga_source,
+    manga_url,
+    manga_title,
+    series_type,
+    chapter_url,
+    chapter_number,
+    started_at,
+    ended_at,
+    duration,
+    pages_read,
+    completed
+)
+VALUES (
+    :mangaSource,
+    :mangaUrl,
+    :mangaTitle,
+    :seriesType,
+    :chapterUrl,
+    :chapterNumber,
+    :startedAt,
+    :endedAt,
+    :duration,
+    :pagesRead,
+    :completed
+);
+
+getAll:
+SELECT * FROM reading_sessions
+ORDER BY started_at;
+
+getBetween:
+SELECT * FROM reading_sessions
+WHERE started_at >= :start AND started_at < :end
+ORDER BY started_at;
+
+getByManga:
+SELECT * FROM reading_sessions
+WHERE manga_source = :mangaSource AND manga_url = :mangaUrl
+ORDER BY started_at;
+
+deleteAll:
+DELETE FROM reading_sessions;

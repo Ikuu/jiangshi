@@ -1338,7 +1338,6 @@ class LibraryPresenter(
                 .mapNotNull { if (it.id != null) MangaUpdate(it.id!!, favorite = true) else null }
 
             withIOContext { updateManga.awaitAll(mangaToAdd) }
-            (view as? FilteredLibraryController)?.updateStatsPage()
         }
     }
 

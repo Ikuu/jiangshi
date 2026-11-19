@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.database.models.defaultReaderType
 import eu.kanade.tachiyomi.data.database.models.orientationType
 import eu.kanade.tachiyomi.data.database.models.readingModeType
+import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.data.database.models.updateCoverLastModified
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
@@ -92,6 +93,9 @@ import yokai.domain.manga.interactor.GetManga
 import yokai.domain.manga.interactor.InsertManga
 import yokai.domain.manga.interactor.UpdateManga
 import yokai.domain.manga.models.MangaUpdate
+import yokai.domain.stats.ReadingSession
+import yokai.domain.stats.ReadingSessionTimer
+import yokai.domain.stats.interactor.InsertReadingSession
 import yokai.domain.storage.StorageManager
 import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
@@ -120,6 +124,7 @@ class ReaderViewModel(
     private val updateManga: UpdateManga by injectLazy()
     private val getHistory: GetHistory by injectLazy()
     private val upsertHistory: UpsertHistory by injectLazy()
+    private val insertReadingSession: InsertReadingSession by injectLazy()
     private val getTrack: GetTrack by injectLazy()
 
     private val mutableState = MutableStateFlow(State())
@@ -157,6 +162,10 @@ class ReaderViewModel(
      * The time the chapter was started reading
      */
     private var chapterReadStartTime: Long? = null
+
+    /** Times reading for the stats screen. Separate from [chapterReadStartTime], which feeds history. */
+    private val readingSessionTimer = ReadingSessionTimer()
+    private var readingSessionTarget: ReadingSessionTimer.Target? = null
 
     /**
      * Relay used when loading prev/next chapter needed to lock the UI (with a dialog).
@@ -544,6 +553,10 @@ class ReaderViewModel(
         // (e.g. rotation). Set synchronously and regardless of incognito/tracking.
         selectedChapter.requestedPage = page.index
 
+        readingSessionTarget(selectedChapter)?.let { target ->
+            saveReadingSession(readingSessionTimer.onActivity(target, page.index, System.currentTimeMillis()))
+        }
+
         // Save last page read and mark as read if needed
         viewModelScope.launchNonCancellableIO {
             saveChapterProgress(selectedChapter, page, hasExtraPage)
@@ -703,6 +716,7 @@ class ReaderViewModel(
 
     private suspend fun onChapterReadComplete(readerChapter: ReaderChapter) {
         readerChapter.chapter.read = true
+        readerChapter.chapter.url.let(readingSessionTimer::markCompleted)
         updateTrackChapterAfterReading(readerChapter)
         deleteChapterIfNeeded(readerChapter)
 
@@ -723,6 +737,42 @@ class ReaderViewModel(
                 }
             }
         updateChapter.awaitAll(duplicateUnreadChapters)
+    }
+
+    /** Starts timing the current chapter for stats when the reader comes into view. */
+    fun resumeReadingSession() {
+        val target = getCurrentChapter()?.let(::readingSessionTarget) ?: return
+        saveReadingSession(readingSessionTimer.onActivity(target, null, System.currentTimeMillis()))
+    }
+
+    /** Stops timing for stats when the reader leaves view, and saves what was read. */
+    fun pauseReadingSession() {
+        saveReadingSession(readingSessionTimer.stop(System.currentTimeMillis()))
+    }
+
+    private fun readingSessionTarget(readerChapter: ReaderChapter): ReadingSessionTimer.Target? {
+        val manga = manga ?: return null
+        val chapter = readerChapter.chapter
+        readingSessionTarget?.takeIf { it.chapterUrl == chapter.url && it.mangaUrl == manga.url }?.let { return it }
+        return ReadingSessionTimer.Target(
+            mangaSource = manga.source,
+            mangaUrl = manga.url,
+            mangaTitle = manga.title,
+            seriesType = manga.seriesType(sourceManager = sourceManager),
+            chapterUrl = chapter.url,
+            chapterNumber = chapter.chapter_number.toDouble(),
+        ).also { readingSessionTarget = it }
+    }
+
+    private fun saveReadingSession(session: ReadingSession?) {
+        if (session == null || preferences.incognitoMode().get()) return
+        viewModelScope.launchNonCancellableIO {
+            try {
+                insertReadingSession.await(session)
+            } catch (e: Exception) {
+                Logger.e(e) { "Unable to save reading session" }
+            }
+        }
     }
 
     fun restartReadTimer() {

@@ -5,6 +5,7 @@ import yokai.data.category.CategoryRepositoryImpl
 import yokai.data.chapter.ChapterRepositoryImpl
 import yokai.data.extension.repo.ExtensionRepoRepositoryImpl
 import yokai.data.history.HistoryRepositoryImpl
+import yokai.data.stats.ReadingSessionRepositoryImpl
 import yokai.data.library.custom.CustomMangaRepositoryImpl
 import yokai.data.manga.ExcludedScanlatorsRepositoryImpl
 import yokai.data.manga.MangaRepositoryImpl
@@ -31,6 +32,9 @@ import yokai.domain.extension.repo.interactor.GetExtensionRepoCount
 import yokai.domain.extension.repo.interactor.ReplaceExtensionRepo
 import yokai.domain.extension.repo.interactor.UpdateExtensionRepo
 import yokai.domain.history.HistoryRepository
+import yokai.domain.stats.ReadingSessionRepository
+import yokai.domain.stats.interactor.GetReadingSessions
+import yokai.domain.stats.interactor.InsertReadingSession
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.history.interactor.UpsertHistory
 import yokai.domain.library.custom.CustomMangaRepository
@@ -104,6 +108,10 @@ fun domainModule() = module {
     factory { UpsertHistory(get()) }
 
     factory { GetRecents(get(), get()) }
+
+    single<ReadingSessionRepository> { ReadingSessionRepositoryImpl(get()) }
+    factory { GetReadingSessions(get()) }
+    factory { InsertReadingSession(get()) }
 
     single<TrackRepository> { TrackRepositoryImpl(get()) }
     factory { DeleteTrack(get()) }

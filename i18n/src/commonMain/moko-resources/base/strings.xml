@@ -1034,6 +1034,50 @@
     <string name="start_year">Start year</string>
     <string name="no_data_for_filters">No data found for your current filters</string>
 
+    <!-- Reading stats -->
+    <string name="stats_period_week">7 days</string>
+    <string name="stats_period_month">30 days</string>
+    <string name="stats_period_year">12 months</string>
+    <string name="stats_period_all">All time</string>
+    <string name="stats_time_read">Time read</string>
+    <string name="stats_chapters_finished">Chapters finished</string>
+    <string name="stats_pages_read">Pages read</string>
+    <string name="stats_series_read">Series read</string>
+    <string name="stats_current_streak">Current streak</string>
+    <string name="stats_longest_streak">Longest streak</string>
+    <string name="stats_section_time">Time</string>
+    <string name="stats_time_per_day">Time read per day</string>
+    <string name="stats_time_per_month">Time read per month</string>
+    <string name="stats_time_per_year">Time read per year</string>
+    <string name="stats_reading_calendar">Reading calendar</string>
+    <string name="stats_less">Less</string>
+    <string name="stats_more">More</string>
+    <string name="stats_time_of_day">Time of day</string>
+    <string name="stats_day_of_week">Day of week</string>
+    <string name="stats_sessions">Sessions</string>
+    <string name="stats_average_session">Average session</string>
+    <string name="stats_longest_session">Longest session</string>
+    <string name="stats_section_series">Series</string>
+    <string name="stats_most_read">Most read</string>
+    <string name="stats_finished_series">Finished</string>
+    <string name="stats_top_genres">Top genres</string>
+    <string name="stats_section_types">By type</string>
+    <string name="stats_per_chapter">%1$s a chapter</string>
+    <string name="stats_pages_per_minute">%1$s pages a minute</string>
+    <string name="stats_section_library">Library</string>
+    <string name="stats_library_series">Series in library</string>
+    <string name="stats_unread_chapters">Unread chapters</string>
+    <string name="stats_backlog">Time to clear unread</string>
+    <string name="stats_by_status">By status</string>
+    <string name="stats_by_source">By source</string>
+    <string name="stats_stalled">Not opened in 30 days</string>
+    <string name="stats_empty_title">No reading recorded yet</string>
+    <string name="stats_empty_body">Time in the reader is recorded from this update on. Read a chapter and it will show up here.</string>
+    <string name="stats_period_empty">Nothing read in this period</string>
+    <string name="stats_under_a_minute">&lt;1m</string>
+    <string name="stats_duration_minutes">%1$dm</string>
+    <string name="stats_duration_hours">%1$dh %2$dm</string>
+
     <!-- Time -->
     <string name="manual">Manual</string>
     <string name="every_6_hours">Every 6 hours</string>

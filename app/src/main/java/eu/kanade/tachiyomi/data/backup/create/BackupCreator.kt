@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.backup.BackupFileValidator
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.create.creators.CategoriesBackupCreator
@@ -26,6 +27,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.backup.BackupPreferences
 import yokai.domain.manga.interactor.GetManga
+import yokai.domain.stats.interactor.GetReadingSessions
 import yokai.i18n.MR
 import yokai.util.lang.getString
 
@@ -36,6 +38,7 @@ class BackupCreator(
     private val preferenceBackupCreator: PreferenceBackupCreator = PreferenceBackupCreator(),
     private val sourcesBackupCreator: SourcesBackupCreator = SourcesBackupCreator(),
     private val getManga: GetManga = Injekt.get(),
+    private val getReadingSessions: GetReadingSessions = Injekt.get(),
 ) {
 
     val parser = ProtoBuf
@@ -80,6 +83,7 @@ class BackupCreator(
                 backupSources = backupSources(backupManga),
                 backupPreferences = backupAppPreferences(options),
                 backupSourcePreferences = backupSourcePreferences(options),
+                backupReadingSessions = backupReadingSessions(options),
             )
 
             val byteArray = parser.encodeToByteArray(Backup.serializer(), backup)
@@ -118,6 +122,12 @@ class BackupCreator(
         if (!options.libraryEntries) return emptyList()
 
         return mangaBackupCreator(mangas, options)
+    }
+
+    private suspend fun backupReadingSessions(options: BackupOptions): List<BackupReadingSession> {
+        if (!options.history) return emptyList()
+
+        return getReadingSessions.awaitAll().map(BackupReadingSession::from)
     }
 
     private fun backupSources(mangas: List<BackupManga>): List<BackupSource> {

@@ -171,6 +171,12 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     fun trackingsToAddOnline() = preferenceStore.getStringSet(Keys.trackingsToAddOnline, emptySet())
 
+    /** Read marks for Suwayomi that haven't reached the server yet, as "mangaId:chapterNumber:read" */
+    fun suwayomiPendingMarks() = preferenceStore.getStringSet("suwayomi_pending_marks", emptySet())
+
+    /** Series whose reads in the app have been sent to Suwayomi once, so the server can decide what's unread */
+    fun suwayomiSyncedSeries() = preferenceStore.getStringSet("suwayomi_synced_series", emptySet())
+
     // TODO: SourcePref
     fun lastUsedCatalogueSource() = preferenceStore.getLong(Keys.lastUsedCatalogueSource, -1)
 

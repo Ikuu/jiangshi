@@ -107,7 +107,13 @@ class TachideskApi {
         }
     }
 
-    suspend fun setChaptersRead(trackUrl: String, chapterNumbers: Set<Float>, read: Boolean) = withIOContext {
+    /** Marks chapters read or unread, and asks the server to update its own trackers if [updateServerTrackers]. */
+    suspend fun setChaptersRead(
+        trackUrl: String,
+        chapterNumbers: Set<Float>,
+        read: Boolean,
+        updateServerTrackers: Boolean,
+    ) = withIOContext {
         val url = resolveMangaUrl(trackUrl)
         val chapters = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
         val ids = chapters.filter { it.chapterNumber in chapterNumbers && it.isRead != read }.map { it.id }
@@ -115,7 +121,7 @@ class TachideskApi {
 
         val mutation = if (read) MARK_CHAPTERS_READ_MUTATION else MARK_CHAPTERS_UNREAD_MUTATION
         graphql<JsonObject>(url, mutation, idsVariables(ids))
-        if (read) graphql<JsonObject>(url, TRACK_PROGRESS_MUTATION, mangaIdVariables(url))
+        if (read && updateServerTrackers) graphql<JsonObject>(url, TRACK_PROGRESS_MUTATION, mangaIdVariables(url))
     }
 
     /**

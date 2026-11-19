@@ -16,6 +16,8 @@ import eu.kanade.tachiyomi.source.SourceManager
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.track.interactor.GetTrack
@@ -29,6 +31,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     private val getTrack: GetTrack by injectLazy()
     private val updateChapter: UpdateChapter by injectLazy()
     private val serverTrackers = ConcurrentHashMap<String, List<ServerTrackerInfo>>()
+    private val pendingLock = Mutex()
 
     // Chapters sync one by one when a series opens. The server's last read chapter is the most
     // recently opened one, so going by it would undo chapters marked unread on the server.
@@ -109,40 +112,107 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     fun seriesUrl(manga: Manga, tracks: List<Track>): String =
         tracks.find { it.sync_id == id }?.tracking_url ?: manga.url
 
-    /** Sends a change made in the app to the server, so the next sync doesn't undo it. */
-    suspend fun updateChaptersRead(manga: Manga, chapterNumbers: List<Float>, read: Boolean) {
-        if (!preferences.trackMarkedAsRead().get() || !accept(sourceManager.getOrStub(manga.source))) return
+    /**
+     * Sends a change made in the app to the server, so the next sync doesn't undo it. Suwayomi is where the
+     * chapters come from, so this doesn't depend on the tracking settings. A change that can't be sent is kept
+     * and tried again on the next sync, which leaves those chapters alone until it's through.
+     * The server's own trackers are only updated when [updateServerTrackers], following the app's tracking settings.
+     */
+    suspend fun updateChaptersRead(
+        manga: Manga,
+        chapterNumbers: List<Float>,
+        read: Boolean,
+        updateServerTrackers: Boolean = preferences.trackMarkedAsRead().get(),
+    ) {
+        if (!accept(sourceManager.getOrStub(manga.source))) return
+        val mangaId = manga.id ?: return
         val numbers = chapterNumbers.filter { it >= 0f }.toSet()
         if (numbers.isEmpty()) return
+        setPendingMarks(mangaId, numbers, read)
         try {
-            api.setChaptersRead(seriesUrl(manga, getTrack.awaitAllByMangaId(manga.id)), numbers, read)
+            api.setChaptersRead(seriesUrl(manga, getTrack.awaitAllByMangaId(mangaId)), numbers, read, updateServerTrackers)
+            clearPendingMarks(mangaId, numbers, read)
         } catch (e: Exception) {
-            Logger.w(e) { "Could not update read chapters on Suwayomi for ${manga.url}" }
+            Logger.w(e) { "Could not update read chapters on Suwayomi for ${manga.url}, will try again" }
         }
+    }
+
+    /** Chapter numbers with a read mark still to send, and whether it marks them read. */
+    private fun pendingMarks(mangaId: Long): Map<Float, Boolean> =
+        preferences.suwayomiPendingMarks().get().mapNotNull { entry ->
+            val (id, number, read) = entry.split(":").takeIf { it.size == 3 } ?: return@mapNotNull null
+            if (id != mangaId.toString()) return@mapNotNull null
+            number.toFloatOrNull()?.let { it to (read == "1") }
+        }.toMap()
+
+    /** The latest mark for a chapter replaces any earlier one still waiting. */
+    private suspend fun setPendingMarks(mangaId: Long, numbers: Set<Float>, read: Boolean) = pendingLock.withLock {
+        val pref = preferences.suwayomiPendingMarks()
+        val keys = numbers.map { "$mangaId:$it:" }
+        pref.set(pref.get().filterNot { entry -> keys.any(entry::startsWith) }.toSet() + keys.map { it + if (read) "1" else "0" })
+    }
+
+    /** Only clears marks that match what was sent, so a newer opposite mark made meanwhile stays. */
+    private suspend fun clearPendingMarks(mangaId: Long, numbers: Collection<Float>, read: Boolean) = pendingLock.withLock {
+        val pref = preferences.suwayomiPendingMarks()
+        val sent = numbers.map { "$mangaId:$it:${if (read) "1" else "0"}" }.toSet()
+        pref.set(pref.get() - sent)
     }
 
     /**
      * Brings in chapters read and pages reached on the server, matching chapters by number, and saves them.
-     * Pages only move forward. A chapter goes back to unread only when reads normally reach the server, so
-     * that being unread there means it was unmarked and not that it was never sent.
+     * Pages only move forward. Marks that couldn't be sent before go first, and their chapters are left as
+     * they are in the app until they're through.
+     *
+     * The first time a series syncs, chapters read in the app but not on the server are sent to it, since
+     * earlier versions only sent marks with "Update tracking when marked as read" on. After that, a chapter
+     * unread on the server goes back to unread in the app, unless a tracker update is still waiting to be sent.
      * Returns whether any chapter changed.
      */
     suspend fun syncChapterProgress(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Boolean {
+        val mangaId = manga.id ?: return false
+        val url = seriesUrl(manga, tracks)
+        val pending = pendingMarks(mangaId)
+        pending.entries.groupBy({ it.value }, { it.key }).forEach { (read, numbers) ->
+            try {
+                api.setChaptersRead(url, numbers.toSet(), read, updateServerTrackers = false)
+                clearPendingMarks(mangaId, numbers, read)
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not send waiting read marks to Suwayomi for ${manga.url}" }
+            }
+        }
+        val stillPending = pendingMarks(mangaId).keys
+
         val remote = try {
-            api.getChapterProgress(seriesUrl(manga, tracks))
+            api.getChapterProgress(url)
         } catch (e: Exception) {
             Logger.w(e) { "Could not get Suwayomi progress for ${manga.url}" }
             return false
         }.groupBy { it.chapterNumber }
 
-        val isLinked = tracks.any { it.sync_id == id }
-        val hasPendingUpdates = preferences.trackingsToAddOnline().get()
-            .any { it.startsWith("${manga.id}:$id:") }
-        val serverDecidesUnread = isLinked && !hasPendingUpdates &&
-            preferences.autoUpdateTrack().get() && preferences.trackMarkedAsRead().get()
+        val syncedBefore = mangaId.toString() in preferences.suwayomiSyncedSeries().get()
+        if (!syncedBefore) {
+            val readOnlyHere = chapters
+                .filter { it.read && it.chapter_number >= 0f && it.chapter_number !in stillPending }
+                .map { it.chapter_number }
+                .filter { number -> remote[number]?.none { it.isRead } == true }
+                .toSet()
+            try {
+                if (readOnlyHere.isNotEmpty()) api.setChaptersRead(url, readOnlyHere, true, updateServerTrackers = false)
+                pendingLock.withLock {
+                    preferences.suwayomiSyncedSeries().set(preferences.suwayomiSyncedSeries().get() + mangaId.toString())
+                }
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not send chapters read in the app to Suwayomi for ${manga.url}" }
+            }
+        }
+
+        val hasPendingTrackerUpdates = preferences.trackingsToAddOnline().get()
+            .any { it.startsWith("$mangaId:$id:") }
+        val serverDecidesUnread = syncedBefore && !hasPendingTrackerUpdates
 
         val updates = chapters.mapNotNull { chapter ->
-            if (chapter.chapter_number < 0f) return@mapNotNull null
+            if (chapter.chapter_number < 0f || chapter.chapter_number in stillPending) return@mapNotNull null
             val matches = remote[chapter.chapter_number] ?: return@mapNotNull null
             val furthestPage = matches.maxOf { it.lastPageRead }
             val pagesLeft = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)

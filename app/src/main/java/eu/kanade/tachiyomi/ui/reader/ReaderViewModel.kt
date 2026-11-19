@@ -196,7 +196,8 @@ class ReaderViewModel(
     private var kavitaSync: Job? = null
     private var kavitaSyncIsPage = false
     private val kavitaSyncLock = Any()
-    private val kavitaFinishedChapterIds = ConcurrentHashMap.newKeySet<Long>()
+    /** Chapters finished in this reader, so going back and forth on the last page doesn't mark them read again */
+    private val serverFinishedChapterIds = ConcurrentHashMap.newKeySet<Long>()
     private suspend fun checkTrackers(manga: Manga) = getTrack.awaitAllByMangaId(manga.id).isNotEmpty()
 
     init {
@@ -478,7 +479,7 @@ class ReaderViewModel(
 
     fun toggleRead(chapter: Chapter) {
         chapter.read = !chapter.read
-        if (!chapter.read) chapter.id?.let(kavitaFinishedChapterIds::remove)
+        if (!chapter.read) chapter.id?.let(serverFinishedChapterIds::remove)
         val lastPageToSave = if (chapter.read) chapter.last_page_read.toLong() else 0L
         viewModelScope.launchNonCancellableIO {
             updateChapter.await(
@@ -691,8 +692,9 @@ class ReaderViewModel(
                     pagesLeft = readerChapter.chapter.pages_left.toLong(),
                 )
             )
-            scheduleSuwayomiPageSync(readerChapter.chapter)
-            scheduleKavitaSync(readerChapter.chapter, page.index, finished)
+            val newlyFinished = finished && readerChapter.chapter.id?.let(serverFinishedChapterIds::add) == true
+            scheduleSuwayomiPageSync(readerChapter.chapter, newlyFinished)
+            scheduleKavitaSync(readerChapter.chapter, page.index, newlyFinished)
         }
     }
 
@@ -705,13 +707,7 @@ class ReaderViewModel(
         val manga = manga ?: return
         val kavita = Injekt.get<TrackManager>().kavita
         if (preferences.incognitoMode().get() || source?.let(kavita::accept) != true) return
-        if (finished) {
-            // Going back and forth on the last page shouldn't mark it read again each time
-            val id = chapter.id ?: return
-            if (!kavitaFinishedChapterIds.add(id)) return
-        } else if (chapter.read || page <= 0) {
-            return
-        }
+        if (!finished && (chapter.read || page <= 0)) return
 
         synchronized(kavitaSyncLock) {
             val previous = kavitaSync
@@ -731,18 +727,26 @@ class ReaderViewModel(
         }
     }
 
-    /** Waits for page turns to settle, so reading doesn't send a request for every page. */
-    private fun scheduleSuwayomiPageSync(chapter: Chapter) {
+    /**
+     * Sends a finished chapter to Suwayomi straight away, or the page reached once page turns settle, so reading
+     * doesn't send a request for every page. Suwayomi is where the chapters come from, so this doesn't depend on
+     * the tracking settings. Setting the page doesn't change whether a chapter's read there.
+     */
+    private fun scheduleSuwayomiPageSync(chapter: Chapter, finished: Boolean) {
         val manga = manga ?: return
         val suwayomi = Injekt.get<TrackManager>().suwayomi
         val page = chapter.last_page_read
         val chapterNumber = chapter.chapter_number
-        if (
-            preferences.incognitoMode().get() || !preferences.autoUpdateTrack().get() ||
-            chapter.read || page <= 0 || chapterNumber < 0f || source?.let(suwayomi::accept) != true
-        ) {
+        if (preferences.incognitoMode().get() || chapterNumber < 0f || source?.let(suwayomi::accept) != true) return
+
+        if (finished) {
+            suwayomiPageSync?.cancel()
+            launchIO {
+                suwayomi.updateChaptersRead(manga, listOf(chapterNumber), true, preferences.autoUpdateTrack().get())
+            }
             return
         }
+        if (chapter.read || page <= 0) return
 
         suwayomiPageSync?.cancel()
         suwayomiPageSync = launchIO {

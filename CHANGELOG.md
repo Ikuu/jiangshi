@@ -11,6 +11,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 - Settings → Tracking shows updates still waiting to reach a tracker or Suwayomi, such as ones made offline. Send them now and see whether they went through, or discard any that never will
 
 ### Changes
+- Less space above the large title on screens like Library, when "Expanded toolbar" is on
 - Marking Suwayomi chapters read or unread reaches the server whatever "Update tracking when marked as read" is set to, and finishing a chapter in the reader marks it read there. The server's own trackers are still only updated as your tracking settings say
 - Chapters marked unread on a Suwayomi server go back to unread in the app for any series, not only those linked to the tracker. The first time a series syncs on this version, chapters read in the app but not on the server are sent to it, so they aren't undone. Marks that can't be sent, such as while offline, are kept and sent on the next sync
 

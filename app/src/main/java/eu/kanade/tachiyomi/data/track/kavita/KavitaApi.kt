@@ -251,6 +251,8 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
     /**
      * A page of the series the user is partway through on the server, most recently read first. They're
      * listed the way the Kavita extension lists series, so ones already saved in the app are matched.
+     * EPUB series are left out, as the extension can't open them, so a page can come back empty while
+     * later ones still have series.
      */
     suspend fun getOnDeck(apiUrl: String, apiKey: String, page: Int): MangasPage = withIOContext {
         val api = getApiFromUrl("${apiUrl.trimEnd('/')}/")
@@ -259,7 +261,7 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
             val totalPages = response.header("Pagination")
                 ?.let { runCatching { json.decodeFromString<PaginationDto>(it).totalPages }.getOrNull() }
             val series = response.parseAs<List<SeriesDto>>()
-            val mangas = series.map { dto ->
+            val mangas = series.filter { it.format != EPUB_FORMAT }.map { dto ->
                 SManga.create().apply {
                     url = "$api/Series/${dto.id}"
                     title = dto.name
@@ -278,6 +280,9 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
             chapterUrl.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
 
         private const val ON_DECK_PAGE_SIZE = 30
+
+        /** Kavita's MangaFormat for EPUB */
+        private const val EPUB_FORMAT = 3
         private const val UNNUMBERED_NUMBER = -100_000f
         private const val SPECIAL_NUMBER = 100_000f
     }

@@ -133,6 +133,16 @@
         <item quantity="other">%d languages</item>
     </plurals>
 
+    <plurals name="pending_updates_waiting">
+        <item quantity="one">%d update waiting to be sent</item>
+        <item quantity="other">%d updates waiting to be sent</item>
+    </plurals>
+
+    <plurals name="pending_updates_still_waiting">
+        <item quantity="one">%d update couldn\'t be sent and is still waiting</item>
+        <item quantity="other">%d updates couldn\'t be sent and are still waiting</item>
+    </plurals>
+
     <plurals name="after_minutes">
         <item quantity="one">After %1$s minute</item>
         <item quantity="other">After %1$s minutes</item>

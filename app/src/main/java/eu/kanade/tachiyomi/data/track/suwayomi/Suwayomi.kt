@@ -137,13 +137,48 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         }
     }
 
-    /** Chapter numbers with a read mark still to send, and whether it marks them read. */
-    private fun pendingMarks(mangaId: Long): Map<Float, Boolean> =
+    /** A read mark made in the app that hasn't reached the server yet. */
+    data class PendingMark(val mangaId: Long, val chapterNumber: Float, val read: Boolean) {
+        val entry get() = "$mangaId:$chapterNumber:${if (read) "1" else "0"}"
+    }
+
+    /** Read marks still to send, for every series. */
+    fun allPendingMarks(): List<PendingMark> =
         preferences.suwayomiPendingMarks().get().mapNotNull { entry ->
             val (id, number, read) = entry.split(":").takeIf { it.size == 3 } ?: return@mapNotNull null
-            if (id != mangaId.toString()) return@mapNotNull null
-            number.toFloatOrNull()?.let { it to (read == "1") }
-        }.toMap()
+            PendingMark(id.toLongOrNull() ?: return@mapNotNull null, number.toFloatOrNull() ?: return@mapNotNull null, read == "1")
+        }
+
+    /** Chapter numbers with a read mark still to send, and whether it marks them read. */
+    private fun pendingMarks(mangaId: Long): Map<Float, Boolean> =
+        allPendingMarks().filter { it.mangaId == mangaId }.associate { it.chapterNumber to it.read }
+
+    /** Drops marks that can't be sent, such as for a series no longer on the server. */
+    suspend fun discardPendingMarks(marks: Collection<PendingMark>) = pendingLock.withLock {
+        val pref = preferences.suwayomiPendingMarks()
+        pref.set(pref.get() - marks.map { it.entry }.toSet())
+    }
+
+    /** Tries to send the waiting marks for one series. Ones that still fail stay waiting. */
+    private suspend fun sendPendingMarks(manga: Manga, url: String) {
+        val mangaId = manga.id ?: return
+        pendingMarks(mangaId).entries.groupBy({ it.value }, { it.key }).forEach { (read, numbers) ->
+            try {
+                api.setChaptersRead(url, numbers.toSet(), read, updateServerTrackers = false)
+                clearPendingMarks(mangaId, numbers, read)
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not send waiting read marks to Suwayomi for ${manga.url}" }
+            }
+        }
+    }
+
+    /** Tries to send every waiting mark now, rather than on each series' next sync. */
+    suspend fun sendAllPendingMarks() {
+        allPendingMarks().map { it.mangaId }.distinct().forEach { mangaId ->
+            val manga = getManga.awaitById(mangaId) ?: return@forEach
+            sendPendingMarks(manga, seriesUrl(manga, getTrack.awaitAllByMangaId(mangaId)))
+        }
+    }
 
     /** The latest mark for a chapter replaces any earlier one still waiting. */
     private suspend fun setPendingMarks(mangaId: Long, numbers: Set<Float>, read: Boolean) = pendingLock.withLock {
@@ -172,15 +207,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     suspend fun syncChapterProgress(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Boolean {
         val mangaId = manga.id ?: return false
         val url = seriesUrl(manga, tracks)
-        val pending = pendingMarks(mangaId)
-        pending.entries.groupBy({ it.value }, { it.key }).forEach { (read, numbers) ->
-            try {
-                api.setChaptersRead(url, numbers.toSet(), read, updateServerTrackers = false)
-                clearPendingMarks(mangaId, numbers, read)
-            } catch (e: Exception) {
-                Logger.w(e) { "Could not send waiting read marks to Suwayomi for ${manga.url}" }
-            }
-        }
+        sendPendingMarks(manga, url)
         val stillPending = pendingMarks(mangaId).keys
 
         val remote = try {

@@ -1,6 +1,15 @@
 package eu.kanade.tachiyomi.ui.setting.controllers
 
 import android.app.Activity
+import android.content.Context
+import eu.kanade.tachiyomi.data.track.DelayedTrackingUpdateJob
+import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
+import eu.kanade.tachiyomi.util.system.launchUI
+import eu.kanade.tachiyomi.util.system.materialAlertDialog
+import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
+import eu.kanade.tachiyomi.util.system.withIOContext
+import eu.kanade.tachiyomi.util.system.withUIContext
+import yokai.domain.manga.interactor.GetManga
 import androidx.preference.PreferenceGroup
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.R
@@ -49,6 +58,20 @@ class SettingsTrackingController :
     override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
         titleRes = MR.strings.tracking
 
+        preference {
+            key = "pending_track_updates"
+            isPersistent = false
+            titleRes = MR.strings.pending_updates
+            isVisible = false
+            val refresh = {
+                val count = preferences.trackingsToAddOnline().get().size + trackManager.suwayomi.allPendingMarks().size
+                isVisible = count > 0
+                summary = context.getString(MR.plurals.pending_updates_waiting, count, count)
+            }
+            preferences.trackingsToAddOnline().changesIn(viewScope) { refresh() }
+            preferences.suwayomiPendingMarks().changesIn(viewScope) { refresh() }
+            onClick { showPendingUpdates() }
+        }
         switchPreference {
             key = Keys.autoUpdateTrack
             titleRes = MR.strings.update_tracking_after_reading
@@ -124,6 +147,94 @@ class SettingsTrackingController :
             enhancedTrackers.forEach { trackPreference(it) }
             infoPreference(MR.strings.enhanced_tracking_info)
         }
+    }
+
+    /** An update waiting to be sent, with the text it's listed under. */
+    private sealed class PendingUpdate(val label: String) {
+        class Tracker(label: String, val entry: String) : PendingUpdate(label)
+        class SuwayomiMark(label: String, val mark: Suwayomi.PendingMark) : PendingUpdate(label)
+    }
+
+    private suspend fun pendingUpdates(context: Context): List<PendingUpdate> {
+        val getManga: GetManga = Injekt.get()
+        val titles = mutableMapOf<Long, String>()
+        suspend fun title(mangaId: Long) = titles.getOrPut(mangaId) {
+            getManga.awaitById(mangaId)?.title ?: context.getString(MR.strings.pending_unknown_series)
+        }
+        fun number(chapter: Float) = if (chapter % 1f == 0f) chapter.toInt().toString() else chapter.toString()
+
+        val trackerUpdates = preferences.trackingsToAddOnline().get().mapNotNull { entry ->
+            val (mangaId, syncId, chapter) = entry.split(":").takeIf { it.size == 3 } ?: return@mapNotNull null
+            val service = syncId.toLongOrNull()?.let(trackManager::getService) ?: return@mapNotNull null
+            val label = context.getString(
+                MR.strings.pending_tracker_update,
+                title(mangaId.toLongOrNull() ?: return@mapNotNull null),
+                context.getString(service.nameRes()),
+                number(chapter.toFloatOrNull() ?: return@mapNotNull null),
+            )
+            PendingUpdate.Tracker(label, entry)
+        }
+        val suwayomi = trackManager.suwayomi
+        val marks = suwayomi.allPendingMarks().map { mark ->
+            val label = context.getString(
+                if (mark.read) MR.strings.pending_marked_read else MR.strings.pending_marked_unread,
+                title(mark.mangaId),
+                context.getString(suwayomi.nameRes()),
+                number(mark.chapterNumber),
+            )
+            PendingUpdate.SuwayomiMark(label, mark)
+        }
+        return (trackerUpdates + marks).sortedBy { it.label }
+    }
+
+    private fun showPendingUpdates() {
+        val activity = activity ?: return
+        viewScope.launchUI {
+            val updates = withIOContext { pendingUpdates(activity) }
+            if (updates.isEmpty()) return@launchUI
+            val ticked = BooleanArray(updates.size)
+            activity.materialAlertDialog()
+                .setCustomTitleAndMessage(MR.strings.pending_updates, activity.getString(MR.strings.pending_updates_info))
+                .setMultiChoiceItems(updates.map { it.label }.toTypedArray(), ticked) { _, which, isTicked ->
+                    ticked[which] = isTicked
+                }
+                .setPositiveButton(activity.getString(MR.strings.send_now)) { _, _ -> sendPendingUpdates() }
+                .setNeutralButton(activity.getString(MR.strings.discard_ticked)) { _, _ ->
+                    discardPendingUpdates(updates.filterIndexed { i, _ -> ticked[i] })
+                }
+                .setNegativeButton(activity.getString(MR.strings.close), null)
+                .show()
+        }
+    }
+
+    /** Sends everything waiting and then says how it went, rather than leaving it to the background job. */
+    private fun sendPendingUpdates() {
+        val activity = activity ?: return
+        view?.snack(MR.strings.sending_pending_updates)
+        viewScope.launchIO {
+            val trackersLeft = DelayedTrackingUpdateJob.sendQueued()
+            trackManager.suwayomi.sendAllPendingMarks()
+            val left = trackersLeft + trackManager.suwayomi.allPendingMarks().size
+            withUIContext {
+                view?.snack(
+                    if (left == 0) {
+                        activity.getString(MR.strings.pending_updates_all_sent)
+                    } else {
+                        activity.getString(MR.plurals.pending_updates_still_waiting, left, left)
+                    },
+                )
+            }
+        }
+    }
+
+    private fun discardPendingUpdates(updates: List<PendingUpdate>) {
+        if (updates.isEmpty()) return
+        val trackerEntries = updates.filterIsInstance<PendingUpdate.Tracker>().map { it.entry }.toSet()
+        if (trackerEntries.isNotEmpty()) {
+            preferences.trackingsToAddOnline().set(preferences.trackingsToAddOnline().get() - trackerEntries)
+        }
+        val marks = updates.filterIsInstance<PendingUpdate.SuwayomiMark>().map { it.mark }
+        if (marks.isNotEmpty()) viewScope.launchIO { trackManager.suwayomi.discardPendingMarks(marks) }
     }
 
     private inline fun PreferenceGroup.trackPreference(

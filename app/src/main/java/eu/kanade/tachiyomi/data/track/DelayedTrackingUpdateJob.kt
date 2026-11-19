@@ -16,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import uy.kohesive.injekt.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.track.interactor.GetTrack
 import yokai.domain.track.interactor.InsertTrack
@@ -24,28 +23,43 @@ import yokai.domain.track.interactor.InsertTrack
 class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters) :
     CoroutineWorker(context, workerParams) {
 
-    private val getManga: GetManga by injectLazy()
-    private val getTrack: GetTrack by injectLazy()
-    private val insertTrack: InsertTrack by injectLazy()
-
     override suspend fun doWork(): Result {
-        val preferences = Injekt.get<PreferencesHelper>()
-        val trackManager = Injekt.get<TrackManager>()
-        val queued = preferences.trackingsToAddOnline().get()
-        // Entries that were sent or can't ever be sent, and so can leave the queue
-        val handled = queued.toMutableSet()
-        val trackings = queued.mapNotNull {
-            val items = it.split(":")
-            if (items.size != 3) {
-                null
-            } else {
-                val mangaId = items[0].toLongOrNull() ?: return@mapNotNull null
-                val trackId = items[1].toLongOrNull() ?: return@mapNotNull null
-                val chapterNumber = items[2].toFloatOrNull() ?: return@mapNotNull null
-                mangaId to (trackId to chapterNumber) to it
-            }
-        }.groupBy { it.first.first }
-        return withContext(Dispatchers.IO) {
+        val remaining = sendQueued()
+        return if (remaining == 0) {
+            Result.success()
+        } else if (runAttemptCount < MAX_ATTEMPTS) {
+            Result.retry()
+        } else {
+            // Stop retrying, but leave them queued for when the next update schedules this job
+            Result.success()
+        }
+    }
+
+    companion object {
+        private const val TAG = "DelayedTrackingUpdate"
+        private const val MAX_ATTEMPTS = 8
+
+        /** Sends the queued tracker updates, and returns how many are still waiting. */
+        suspend fun sendQueued(): Int = withContext(Dispatchers.IO) {
+            val preferences = Injekt.get<PreferencesHelper>()
+            val trackManager = Injekt.get<TrackManager>()
+            val getManga = Injekt.get<GetManga>()
+            val getTrack = Injekt.get<GetTrack>()
+            val insertTrack = Injekt.get<InsertTrack>()
+            val queued = preferences.trackingsToAddOnline().get()
+            // Entries that were sent or can't ever be sent, and so can leave the queue
+            val handled = queued.toMutableSet()
+            val trackings = queued.mapNotNull {
+                val items = it.split(":")
+                if (items.size != 3) {
+                    null
+                } else {
+                    val mangaId = items[0].toLongOrNull() ?: return@mapNotNull null
+                    val trackId = items[1].toLongOrNull() ?: return@mapNotNull null
+                    val chapterNumber = items[2].toFloatOrNull() ?: return@mapNotNull null
+                    mangaId to (trackId to chapterNumber) to it
+                }
+            }.groupBy { it.first.first }
             trackings.forEach {
                 val mangaId = it.key
                 val manga = getManga.awaitById(mangaId) ?: return@forEach
@@ -71,20 +85,8 @@ class DelayedTrackingUpdateJob(context: Context, workerParams: WorkerParameters)
             // Re-read so entries queued while this ran aren't lost
             val remaining = preferences.trackingsToAddOnline().get() - handled
             preferences.trackingsToAddOnline().set(remaining)
-            if (remaining.isEmpty()) {
-                Result.success()
-            } else if (runAttemptCount < MAX_ATTEMPTS) {
-                Result.retry()
-            } else {
-                // Stop retrying, but leave them queued for when the next update schedules this job
-                Result.success()
-            }
+            remaining.size
         }
-    }
-
-    companion object {
-        private const val TAG = "DelayedTrackingUpdate"
-        private const val MAX_ATTEMPTS = 8
 
         fun setupTask(context: Context) {
             val constraints =

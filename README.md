@@ -2,7 +2,7 @@
 
 A manga and comic reader for Android, forked from [Yōkai](https://github.com/null2264/yokai) and reshaped around how I like to read.
 
-Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai backup restores cleanly. The changes on top of Yōkai are the ones I wanted: features for my own setup, like reading comics from a Kavita server, and defaults that suit my taste. They aren't meant to suit everyone, so if a change below isn't for you, Yōkai is the better fit.
+Jiangshi tracks Yōkai closely and keeps its database migrations, adding one of its own for reading stats, so a Yōkai backup restores cleanly. The changes on top of Yōkai are the ones I wanted: features for my own setup, like reading comics from a Kavita server, and defaults that suit my taste. They aren't meant to suit everyone, so if a change below isn't for you, Yōkai is the better fit.
 
 ## Changes from Yōkai
 
@@ -10,6 +10,7 @@ Jiangshi tracks Yōkai closely and keeps its database migrations, so a Yōkai ba
 * **No telemetry**: Firebase, Crashlytics and analytics are removed from the build, along with the crash report toggle. Builds don't need a `google-services.json`.
 * **Updater**: checks Jiangshi's GitHub releases instead of Yōkai's, and shows Jiangshi's release notes. Debug builds don't check.
 * **Kavita volumes and comics**: Kavita series show which chapters belong to each volume, with page counts and per-volume progress. Series from a Kavita comic library count as comics, both on their page and in the library's type filter, which only offers the types your library has. The chapter count names volumes, chapters and issues separately.
+* **Reading stats**: the Statistics page is about your reading rather than your library: time read, chapters and pages, streaks, time per day or month, a reading calendar, when you read, most read series, top genres, and comics, manga and webtoons compared, with a short library section at the end. Each series page shows the time spent reading it. Time is recorded per session from 1.5.0 on, with long gaps between page turns capped, and kept apart from history so clearing history doesn't clear it. Stats are included in backups with history.
 * **Suwayomi tracking**: uses GraphQL, so it works with newer Suwayomi servers that no longer have the REST API. Chapters read and pages reached stay in step with the server.
 * **Tracker User-Agent**: trackers see requests as coming from `Ikuu/jiangshi`, not Yōkai.
 * **Rotation in double page mode**: rotating the device no longer jumps back a page, including when the current page becomes part of a spread.
@@ -88,6 +89,8 @@ git remote add upstream https://github.com/null2264/yokai.git   # once
 git fetch upstream
 git merge upstream/master
 ```
+
+Jiangshi adds one database migration of its own, `31.sqm`, which creates the `reading_sessions` table. If Yōkai adds its own `31.sqm` or later, its number will clash with Jiangshi's, and Jiangshi installs are already past 31 so they'd never run it. Move Yōkai's change into a new migration numbered after Jiangshi's last one.
 
 Yōkai's release and mirror workflows, Renovate config, funding links and issue templates are deleted on `main`. If a merge reports a modify/delete conflict on one of them, keep it deleted with `git rm <file>`. Yōkai's `master` still has those workflows, so don't push it to the fork, or disable them in the Actions tab first if you do.
 

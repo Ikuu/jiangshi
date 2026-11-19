@@ -7,8 +7,10 @@ import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.database.models.removeCover
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -340,11 +342,21 @@ open class BrowseSourcePresenter(
         restartPager(filters = filters)
     }
 
+    /** Whether this is a Kavita source, which can list the series On Deck on its server. */
+    val supportsOnDeck: Boolean
+        get() = source is ConfigurableSource && Injekt.get<TrackManager>().kavita.accept(source)
+
+    var useOnDeck = false
+
     open fun createPager(query: String, filters: FilterList): Pager {
-        return if (useLatest && query.isBlank() && !filtersChanged) {
+        return if (useOnDeck && supportsOnDeck && query.isBlank() && !filtersChanged) {
+            KavitaOnDeckPager(source)
+        } else if (useLatest && query.isBlank() && !filtersChanged) {
+            useOnDeck = false
             LatestUpdatesPager(source)
         } else {
             useLatest = false
+            useOnDeck = false
             BrowseSourcePager(source, query, filters)
         }
     }

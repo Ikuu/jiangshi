@@ -7,6 +7,8 @@ import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.parseAs
+import eu.kanade.tachiyomi.source.model.MangasPage
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.system.withIOContext
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -246,6 +248,28 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
             .close()
     }
 
+    /**
+     * A page of the series the user is partway through on the server, most recently read first. They're
+     * listed the way the Kavita extension lists series, so ones already saved in the app are matched.
+     */
+    suspend fun getOnDeck(apiUrl: String, apiKey: String, page: Int): MangasPage = withIOContext {
+        val api = getApiFromUrl("${apiUrl.trimEnd('/')}/")
+        val request = POST("$api/Series/on-deck?libraryId=0&PageNumber=$page&PageSize=$ON_DECK_PAGE_SIZE", body = jsonBody("{}"))
+        authClient.newCall(request).awaitSuccess().use { response ->
+            val totalPages = response.header("Pagination")
+                ?.let { runCatching { json.decodeFromString<PaginationDto>(it).totalPages }.getOrNull() }
+            val series = response.parseAs<List<SeriesDto>>()
+            val mangas = series.map { dto ->
+                SManga.create().apply {
+                    url = "$api/Series/${dto.id}"
+                    title = dto.name
+                    if (apiKey.isNotBlank()) thumbnail_url = "$api/image/series-cover?seriesId=${dto.id}&apiKey=$apiKey"
+                }
+            }
+            MangasPage(mangas, totalPages?.let { page < it } ?: (series.size == ON_DECK_PAGE_SIZE))
+        }
+    }
+
     private fun jsonBody(body: String) = body.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
 
     companion object {
@@ -253,6 +277,7 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         fun chapterId(chapterUrl: String): Int? =
             chapterUrl.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
 
+        private const val ON_DECK_PAGE_SIZE = 30
         private const val UNNUMBERED_NUMBER = -100_000f
         private const val SPECIAL_NUMBER = 100_000f
     }

@@ -73,6 +73,13 @@ data class ProgressDto(
     val libraryId: Int,
 )
 
+/** Kavita's "Pagination" response header */
+@Serializable
+data class PaginationDto(
+    val currentPage: Int = 0,
+    val totalPages: Int = 0,
+)
+
 @Serializable
 data class LibraryDto(
     val id: Int,

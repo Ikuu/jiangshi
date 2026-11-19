@@ -203,17 +203,28 @@ open class BrowseSourceController(bundle: Bundle) :
             binding.btnGroupFilter.isVisible = presenter.sourceFilters.isNotEmpty()
             binding.btnGroupLatest.isVisible = presenter.source.supportsLatest
         }
+        binding.btnGroupOnDeck.isVisible = presenter.supportsOnDeck
         val isFiltered = { !presenter.filtersMatchDefault() || presenter.query.isNotBlank() }
         binding.btnGroupPopular.setOnClickListener {
-            if (presenter.useLatest || isFiltered()) {
+            if (presenter.useLatest || presenter.useOnDeck || isFiltered()) {
                 presenter.useLatest = false
+                presenter.useOnDeck = false
                 resetPager()
             }
             updatePopLatestIcons()
         }
         binding.btnGroupLatest.setOnClickListener {
-            if (!presenter.useLatest || isFiltered()) {
+            if (!presenter.useLatest || presenter.useOnDeck || isFiltered()) {
                 presenter.useLatest = true
+                presenter.useOnDeck = false
+                resetPager()
+            }
+            updatePopLatestIcons()
+        }
+        binding.btnGroupOnDeck.setOnClickListener {
+            if (!presenter.useOnDeck || isFiltered()) {
+                presenter.useOnDeck = true
+                presenter.useLatest = false
                 resetPager()
             }
             updatePopLatestIcons()
@@ -783,9 +794,10 @@ open class BrowseSourceController(bundle: Bundle) :
 
     private fun updatePopLatestIcons() {
         val isNotFiltered = presenter.filtersMatchDefault() && presenter.query.isBlank()
-        binding.btnGroupPopular.isChecked = !presenter.useLatest && isNotFiltered
+        val isPopular = !presenter.useLatest && !presenter.useOnDeck && isNotFiltered
+        binding.btnGroupPopular.isChecked = isPopular
         binding.btnGroupPopular.setIconResource(
-            if (!presenter.useLatest && isNotFiltered) {
+            if (isPopular) {
                 R.drawable.ic_heart_24dp
             } else {
                 R.drawable.ic_heart_outline_24dp
@@ -799,6 +811,7 @@ open class BrowseSourceController(bundle: Bundle) :
                 R.drawable.ic_new_releases_outline_24dp
             },
         )
+        binding.btnGroupOnDeck.isChecked = presenter.useOnDeck && isNotFiltered
         binding.btnGroupFilter.isChecked = !isNotFiltered
     }
 

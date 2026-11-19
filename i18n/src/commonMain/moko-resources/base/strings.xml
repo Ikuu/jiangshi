@@ -1083,6 +1083,7 @@
     <string name="series_stats_last_read">last read %1$s</string>
 
     <!-- Updates waiting to reach a tracker or server -->
+    <string name="on_deck">On Deck</string>
     <string name="pending_updates">Waiting to send</string>
     <string name="pending_updates_info">These are sent automatically once the tracker or server can be reached. Tick any that will never go through, such as for a tracker you\'ve logged out of, to discard them.</string>
     <string name="pending_tracker_update">%1$s: %2$s, chapter %3$s</string>

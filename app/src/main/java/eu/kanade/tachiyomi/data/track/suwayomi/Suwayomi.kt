@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
+import eu.kanade.tachiyomi.data.track.PendingReadMarks
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
@@ -137,27 +138,22 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         }
     }
 
+    private val pending by lazy { PendingReadMarks(preferences.suwayomiPendingMarks()) }
+
     /** A read mark made in the app that hasn't reached the server yet. */
-    data class PendingMark(val mangaId: Long, val chapterNumber: Float, val read: Boolean) {
-        val entry get() = "$mangaId:$chapterNumber:${if (read) "1" else "0"}"
-    }
+    data class PendingMark(val mangaId: Long, val chapterNumber: Float, val read: Boolean)
 
     /** Read marks still to send, for every series. */
     fun allPendingMarks(): List<PendingMark> =
-        preferences.suwayomiPendingMarks().get().mapNotNull { entry ->
-            val (id, number, read) = entry.split(":").takeIf { it.size == 3 } ?: return@mapNotNull null
-            PendingMark(id.toLongOrNull() ?: return@mapNotNull null, number.toFloatOrNull() ?: return@mapNotNull null, read == "1")
-        }
+        pending.all().mapNotNull { mark -> mark.chapter.toFloatOrNull()?.let { PendingMark(mark.mangaId, it, mark.read) } }
 
     /** Chapter numbers with a read mark still to send, and whether it marks them read. */
     private fun pendingMarks(mangaId: Long): Map<Float, Boolean> =
-        allPendingMarks().filter { it.mangaId == mangaId }.associate { it.chapterNumber to it.read }
+        pending.forManga(mangaId).mapNotNull { (chapter, read) -> chapter.toFloatOrNull()?.let { it to read } }.toMap()
 
     /** Drops marks that can't be sent, such as for a series no longer on the server. */
-    suspend fun discardPendingMarks(marks: Collection<PendingMark>) = pendingLock.withLock {
-        val pref = preferences.suwayomiPendingMarks()
-        pref.set(pref.get() - marks.map { it.entry }.toSet())
-    }
+    suspend fun discardPendingMarks(marks: Collection<PendingMark>) =
+        pending.discard(marks.map { PendingReadMarks.Mark(it.mangaId, it.chapterNumber.toString(), it.read) })
 
     /** Tries to send the waiting marks for one series. Ones that still fail stay waiting. */
     private suspend fun sendPendingMarks(manga: Manga, url: String) {
@@ -180,19 +176,11 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         }
     }
 
-    /** The latest mark for a chapter replaces any earlier one still waiting. */
-    private suspend fun setPendingMarks(mangaId: Long, numbers: Set<Float>, read: Boolean) = pendingLock.withLock {
-        val pref = preferences.suwayomiPendingMarks()
-        val keys = numbers.map { "$mangaId:$it:" }
-        pref.set(pref.get().filterNot { entry -> keys.any(entry::startsWith) }.toSet() + keys.map { it + if (read) "1" else "0" })
-    }
+    private suspend fun setPendingMarks(mangaId: Long, numbers: Set<Float>, read: Boolean) =
+        pending.add(mangaId, numbers.map { it.toString() }, read)
 
-    /** Only clears marks that match what was sent, so a newer opposite mark made meanwhile stays. */
-    private suspend fun clearPendingMarks(mangaId: Long, numbers: Collection<Float>, read: Boolean) = pendingLock.withLock {
-        val pref = preferences.suwayomiPendingMarks()
-        val sent = numbers.map { "$mangaId:$it:${if (read) "1" else "0"}" }.toSet()
-        pref.set(pref.get() - sent)
-    }
+    private suspend fun clearPendingMarks(mangaId: Long, numbers: Collection<Float>, read: Boolean) =
+        pending.remove(mangaId, numbers.map { it.toString() }, read)
 
     /**
      * Brings in chapters read and pages reached on the server, matching chapters by number, and saves them.

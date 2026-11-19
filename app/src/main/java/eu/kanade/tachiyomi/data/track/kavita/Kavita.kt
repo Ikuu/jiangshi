@@ -6,7 +6,9 @@ import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
+import eu.kanade.tachiyomi.data.track.PendingReadMarks
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.updateNewTrackInfo
@@ -37,6 +39,7 @@ class Kavita(private val context: Context, id: Long) : TrackService(id), Enhance
     val api by lazy { KavitaApi(client, interceptor) }
 
     private val sourceManager: SourceManager by injectLazy()
+    private val preferences: PreferencesHelper by injectLazy()
 
     override fun nameRes() = MR.strings.kavita
 
@@ -87,18 +90,54 @@ class Kavita(private val context: Context, id: Long) : TrackService(id), Enhance
         return api.updateProgress(track)
     }
 
+    private val pending by lazy { PendingReadMarks(preferences.kavitaPendingMarks()) }
+
     /**
      * Sends chapters marked read or unread in the app to the server. Opening a series brings in what's read on
-     * the server, so without this a finished chapter marked unread would turn back to read.
+     * the server, so without this a finished chapter marked unread would turn back to read. A change that can't
+     * be sent is kept and sent before the series next syncs, which leaves those chapters alone until it's through.
      */
     suspend fun updateChaptersRead(manga: Manga, chapters: List<Chapter>, read: Boolean) {
         if (!accept(sourceManager.getOrStub(manga.source))) return
+        val mangaId = manga.id ?: return
         val ids = chapters.mapNotNull { KavitaApi.chapterId(it.url) }.distinct()
         if (ids.isEmpty()) return
+        val keys = ids.map { it.toString() }
+        pending.add(mangaId, keys, read)
         try {
             api.setChaptersRead(manga.url, ids, read)
+            pending.remove(mangaId, keys, read)
         } catch (e: Exception) {
-            Logger.w(e) { "Could not update read chapters on Kavita for ${manga.url}" }
+            Logger.w(e) { "Could not update read chapters on Kavita for ${manga.url}, will try again" }
+        }
+    }
+
+    /** Read marks still to send, keyed by Kavita chapter ID. */
+    fun allPendingMarks(): List<PendingReadMarks.Mark> = pending.all()
+
+    /** Kavita chapter IDs in a series with a mark still to send, which syncing should leave alone. */
+    fun pendingChapterIds(mangaId: Long): Set<Int> = pending.forManga(mangaId).keys.mapNotNull { it.toIntOrNull() }.toSet()
+
+    suspend fun discardPendingMarks(marks: Collection<PendingReadMarks.Mark>) = pending.discard(marks)
+
+    /** Tries to send the waiting marks for one series. Ones that still fail stay waiting. */
+    suspend fun sendPendingMarks(manga: Manga) {
+        val mangaId = manga.id ?: return
+        pending.forManga(mangaId).entries.groupBy({ it.value }, { it.key }).forEach { (read, keys) ->
+            val ids = keys.mapNotNull { it.toIntOrNull() }
+            try {
+                if (ids.isNotEmpty()) api.setChaptersRead(manga.url, ids, read)
+                pending.remove(mangaId, keys, read)
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not send waiting read marks to Kavita for ${manga.url}" }
+            }
+        }
+    }
+
+    /** Tries to send every waiting mark now, rather than on each series' next sync. */
+    suspend fun sendAllPendingMarks() {
+        pending.all().map { it.mangaId }.distinct().forEach { mangaId ->
+            getManga.awaitById(mangaId)?.let { sendPendingMarks(it) }
         }
     }
 
@@ -122,6 +161,8 @@ class Kavita(private val context: Context, id: Long) : TrackService(id), Enhance
     }
 
     override suspend fun refresh(track: Track): Track {
+        // Waiting marks go first, so the server's progress already includes them
+        getManga.awaitById(track.manga_id)?.let { sendPendingMarks(it) }
         val remoteTrack = api.getTrackSearch(track.tracking_url)
         track.copyPersonalFrom(remoteTrack)
         track.total_chapters = remoteTrack.total_chapters

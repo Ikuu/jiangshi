@@ -1084,11 +1084,16 @@
 
     <!-- Updates waiting to reach a tracker or server -->
     <string name="on_deck">On Deck</string>
+    <string name="remove_from_on_deck">Remove from On Deck</string>
+    <string name="removed_from_on_deck">Removed from On Deck</string>
+    <string name="could_not_remove_from_on_deck">Couldn\'t remove it from On Deck</string>
     <string name="pending_updates">Waiting to send</string>
     <string name="pending_updates_info">These are sent automatically once the tracker or server can be reached. Tick any that will never go through, such as for a tracker you\'ve logged out of, to discard them.</string>
     <string name="pending_tracker_update">%1$s: %2$s, chapter %3$s</string>
     <string name="pending_marked_read">%1$s: %2$s, chapter %3$s marked read</string>
     <string name="pending_marked_unread">%1$s: %2$s, chapter %3$s marked unread</string>
+    <string name="pending_named_marked_read">%1$s: %2$s, %3$s marked read</string>
+    <string name="pending_named_marked_unread">%1$s: %2$s, %3$s marked unread</string>
     <string name="pending_unknown_series">Removed series</string>
     <string name="send_now">Send now</string>
     <string name="discard_ticked">Discard ticked</string>

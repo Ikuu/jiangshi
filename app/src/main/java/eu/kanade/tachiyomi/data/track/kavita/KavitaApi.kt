@@ -272,6 +272,12 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         }
     }
 
+    /** Takes a series off On Deck until it's next read */
+    suspend fun removeFromOnDeck(seriesUrl: String) = withIOContext {
+        val requestUrl = "${getApiFromUrl(seriesUrl)}/Series/remove-from-on-deck?seriesId=${getIdFromUrl(seriesUrl)}"
+        authClient.newCall(POST(requestUrl, body = jsonBody("{}"))).awaitSuccess().close()
+    }
+
     private fun jsonBody(body: String) = body.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
 
     companion object {

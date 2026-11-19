@@ -174,6 +174,9 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     /** Read marks for Suwayomi that haven't reached the server yet, as "mangaId:chapterNumber:read" */
     fun suwayomiPendingMarks() = preferenceStore.getStringSet("suwayomi_pending_marks", emptySet())
 
+    /** Read marks for Kavita that haven't reached the server yet, as "mangaId:kavitaChapterId:read" */
+    fun kavitaPendingMarks() = preferenceStore.getStringSet("kavita_pending_marks", emptySet())
+
     /** Series whose reads in the app have been sent to Suwayomi once, so the server can decide what's unread */
     fun suwayomiSyncedSeries() = preferenceStore.getStringSet("suwayomi_synced_series", emptySet())
 

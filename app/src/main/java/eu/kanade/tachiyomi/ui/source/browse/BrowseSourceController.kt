@@ -29,6 +29,7 @@ import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.databinding.BrowseSourceControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.CatalogueSource
@@ -78,6 +79,8 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.source.browse.filter.models.SavedSearch
@@ -899,6 +902,40 @@ open class BrowseSourceController(bundle: Bundle) :
      */
     override fun onItemLongClick(position: Int) {
         val manga = (adapter?.getItem(position) as? BrowseSourceItem?)?.manga ?: return
+        val activity = activity ?: return
+        if (!presenter.useOnDeck) {
+            addOrRemoveFromLibrary(manga, position)
+            return
+        }
+        // On Deck adds a way to take the series off it, alongside the usual library toggle
+        val options = arrayOf(
+            activity.getString(if (manga.favorite) MR.strings.remove_from_library else MR.strings.add_to_library),
+            activity.getString(MR.strings.remove_from_on_deck),
+        )
+        activity.materialAlertDialog()
+            .setTitle(manga.title)
+            .setItems(options) { _, which ->
+                if (which == 0) addOrRemoveFromLibrary(manga, position) else removeFromOnDeck(manga, position)
+            }
+            .show()
+    }
+
+    private fun removeFromOnDeck(manga: Manga, position: Int) {
+        viewScope.launchIO {
+            try {
+                Injekt.get<TrackManager>().kavita.api.removeFromOnDeck(manga.url)
+                withUIContext {
+                    adapter?.removeItem(position)
+                    view?.snack(MR.strings.removed_from_on_deck)
+                }
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not remove ${manga.url} from Kavita's On Deck" }
+                withUIContext { view?.snack(MR.strings.could_not_remove_from_on_deck) }
+            }
+        }
+    }
+
+    private fun addOrRemoveFromLibrary(manga: Manga, position: Int) {
         val view = view ?: return
         val activity = activity ?: return
         viewScope.launchIO {

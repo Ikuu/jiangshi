@@ -3,6 +3,9 @@ package eu.kanade.tachiyomi.ui.setting.controllers
 import android.app.Activity
 import android.content.Context
 import eu.kanade.tachiyomi.data.track.DelayedTrackingUpdateJob
+import eu.kanade.tachiyomi.data.track.PendingReadMarks
+import eu.kanade.tachiyomi.data.track.kavita.KavitaApi
+import yokai.domain.chapter.interactor.GetChapter
 import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
@@ -64,12 +67,14 @@ class SettingsTrackingController :
             titleRes = MR.strings.pending_updates
             isVisible = false
             val refresh = {
-                val count = preferences.trackingsToAddOnline().get().size + trackManager.suwayomi.allPendingMarks().size
+                val count = preferences.trackingsToAddOnline().get().size + trackManager.suwayomi.allPendingMarks().size +
+                    trackManager.kavita.allPendingMarks().size
                 isVisible = count > 0
                 summary = context.getString(MR.plurals.pending_updates_waiting, count, count)
             }
             preferences.trackingsToAddOnline().changesIn(viewScope) { refresh() }
             preferences.suwayomiPendingMarks().changesIn(viewScope) { refresh() }
+            preferences.kavitaPendingMarks().changesIn(viewScope) { refresh() }
             onClick { showPendingUpdates() }
         }
         switchPreference {
@@ -153,6 +158,7 @@ class SettingsTrackingController :
     private sealed class PendingUpdate(val label: String) {
         class Tracker(label: String, val entry: String) : PendingUpdate(label)
         class SuwayomiMark(label: String, val mark: Suwayomi.PendingMark) : PendingUpdate(label)
+        class KavitaMark(label: String, val mark: PendingReadMarks.Mark) : PendingUpdate(label)
     }
 
     private suspend fun pendingUpdates(context: Context): List<PendingUpdate> {
@@ -184,7 +190,24 @@ class SettingsTrackingController :
             )
             PendingUpdate.SuwayomiMark(label, mark)
         }
-        return (trackerUpdates + marks).sortedBy { it.label }
+        val kavita = trackManager.kavita
+        val getChapter: GetChapter = Injekt.get()
+        val kavitaMarks = kavita.allPendingMarks().groupBy { it.mangaId }.flatMap { (mangaId, mangaMarks) ->
+            // Kavita marks are kept by Kavita's chapter ID, so the chapter's own name is shown
+            val names = getChapter.awaitAll(mangaId, false)
+                .mapNotNull { chapter -> KavitaApi.chapterId(chapter.url)?.let { it.toString() to chapter.name } }
+                .toMap()
+            mangaMarks.map { mark ->
+                val label = context.getString(
+                    if (mark.read) MR.strings.pending_named_marked_read else MR.strings.pending_named_marked_unread,
+                    title(mangaId),
+                    context.getString(kavita.nameRes()),
+                    names[mark.chapter] ?: "#${mark.chapter}",
+                )
+                PendingUpdate.KavitaMark(label, mark)
+            }
+        }
+        return (trackerUpdates + marks + kavitaMarks).sortedBy { it.label }
     }
 
     private fun showPendingUpdates() {
@@ -214,7 +237,8 @@ class SettingsTrackingController :
         viewScope.launchIO {
             val trackersLeft = DelayedTrackingUpdateJob.sendQueued()
             trackManager.suwayomi.sendAllPendingMarks()
-            val left = trackersLeft + trackManager.suwayomi.allPendingMarks().size
+            trackManager.kavita.sendAllPendingMarks()
+            val left = trackersLeft + trackManager.suwayomi.allPendingMarks().size + trackManager.kavita.allPendingMarks().size
             withUIContext {
                 view?.snack(
                     if (left == 0) {
@@ -235,6 +259,8 @@ class SettingsTrackingController :
         }
         val marks = updates.filterIsInstance<PendingUpdate.SuwayomiMark>().map { it.mark }
         if (marks.isNotEmpty()) viewScope.launchIO { trackManager.suwayomi.discardPendingMarks(marks) }
+        val kavitaMarks = updates.filterIsInstance<PendingUpdate.KavitaMark>().map { it.mark }
+        if (kavitaMarks.isNotEmpty()) viewScope.launchIO { trackManager.kavita.discardPendingMarks(kavitaMarks) }
     }
 
     private inline fun PreferenceGroup.trackPreference(

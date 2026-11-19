@@ -7,8 +7,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 ### Additions
 - Kavita series send the page you reach to the server as you read, so Kavita's reader picks up where you left off. Finishing a chapter marks it read on Kavita, including series outside the library or not linked to the tracker. Reading in incognito mode isn't sent
 - Library updates bring in chapters read on a Suwayomi server, so unread counts stay current without opening each series. This includes series the update restrictions skip, as it only asks your own server
-- Browsing a Kavita source has an On Deck button next to Popular and Latest, listing the series you're partway through on the server, most recently read first. EPUBs are left out, as they can't be opened
-- Settings → Tracking shows updates still waiting to reach a tracker or Suwayomi, such as ones made offline. Send them now and see whether they went through, or discard any that never will
+- Browsing a Kavita source has an On Deck button next to Popular and Latest, listing the series you're partway through on the server, most recently read first. EPUBs are left out, as they can't be opened. Long-press a series there to take it off On Deck
+- Settings → Tracking shows updates still waiting to reach a tracker, Kavita or Suwayomi, such as ones made offline. Send them now and see whether they went through, or discard any that never will
 
 ### Changes
 - Less space above the large title on screens like Library, when "Expanded toolbar" is on
@@ -16,7 +16,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 - Chapters marked unread on a Suwayomi server go back to unread in the app for any series, not only those linked to the tracker. The first time a series syncs on this version, chapters read in the app but not on the server are sent to it, so they aren't undone. Marks that can't be sent, such as while offline, are kept and sent on the next sync
 
 ### Bug Fixes
-- Fixed finished Kavita chapters marked unread turning back to read the next time the series was opened. Marking chapters read or unread now reaches the server from the series page, the library, Recents and the reader
+- Fixed finished Kavita chapters marked unread turning back to read the next time the series was opened. Marking chapters read or unread now reaches the server from the series page, the library, Recents and the reader. Marks that can't be sent, such as while offline, are kept and sent before the series next syncs
 
 ## [1.5.0] - 2026-11-19
 

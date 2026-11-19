@@ -330,6 +330,7 @@ class MangaDetailsPresenter(
     private suspend fun fetchKavitaLayout() {
         val kavita = Injekt.get<TrackManager>().kavita
         if (!kavita.accept(source)) return
+        kavita.sendPendingMarks(manga)
         val layout = try {
             kavita.api.getSeriesLayout(manga.url)
         } catch (e: Exception) {
@@ -348,7 +349,9 @@ class MangaDetailsPresenter(
      * Progress only moves forward here; marking unread stays a choice made in the app.
      */
     private suspend fun applyKavitaProgress() {
+        val waiting = Injekt.get<TrackManager>().kavita.pendingChapterIds(manga.id!!)
         val updates = allChapters.mapNotNull { item ->
+            if (KavitaApi.chapterId(item.url) in waiting) return@mapNotNull null
             val info = kavitaInfo(item.chapter) ?: return@mapNotNull null
             if (item.read || info.pages <= 0 || info.pagesRead <= 0) return@mapNotNull null
             if (info.pagesRead >= info.pages) {

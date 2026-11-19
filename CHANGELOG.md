@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-19
+
 ### Additions
 - A new Statistics page about your reading: time read, chapters and pages, streaks, time per day or month, a reading calendar, when you read, most read series with the issues, chapters or volumes read, top genres, and comics, manga and webtoons compared. A Library section shows unread chapters, roughly how long they'd take at your pace, and series not opened in 30 days
 - Reading time is recorded from this version on, per session, with gaps over 5 minutes without a page turn capped so a reader left open doesn't count. Incognito reading isn't recorded. Stats are kept apart from history, so clearing history doesn't clear them, and they're included in backups with history

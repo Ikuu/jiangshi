@@ -2,7 +2,9 @@ package eu.kanade.tachiyomi.data.track.kavita
 
 import android.content.Context
 import android.graphics.Color
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackService
@@ -14,6 +16,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.sourcePreferences
 import java.security.MessageDigest
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import uy.kohesive.injekt.injectLazy
@@ -82,6 +85,32 @@ class Kavita(private val context: Context, id: Long) : TrackService(id), Enhance
     override suspend fun update(track: Track, setToRead: Boolean): Track {
         updateTrackStatus(track, setToRead)
         return api.updateProgress(track)
+    }
+
+    /**
+     * Sends chapters marked read or unread in the app to the server. Opening a series brings in what's read on
+     * the server, so without this a finished chapter marked unread would turn back to read.
+     */
+    suspend fun updateChaptersRead(manga: Manga, chapters: List<Chapter>, read: Boolean) {
+        if (!accept(sourceManager.getOrStub(manga.source))) return
+        val ids = chapters.mapNotNull { KavitaApi.chapterId(it.url) }.distinct()
+        if (ids.isEmpty()) return
+        try {
+            api.setChaptersRead(manga.url, ids, read)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not update read chapters on Kavita for ${manga.url}" }
+        }
+    }
+
+    /** Sends the page reached in a chapter to the server, so reading there picks up from it */
+    suspend fun updatePageProgress(manga: Manga, chapter: Chapter, page: Int) {
+        val chapterId = KavitaApi.chapterId(chapter.url) ?: return
+        try {
+            api.setPageProgress(manga.url, chapterId, page)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Logger.w(e) { "Could not update page progress on Kavita for ${manga.url}" }
+        }
     }
 
     override suspend fun bind(track: Track): Track {

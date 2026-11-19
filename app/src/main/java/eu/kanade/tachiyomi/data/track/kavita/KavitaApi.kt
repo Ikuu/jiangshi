@@ -10,6 +10,8 @@ import eu.kanade.tachiyomi.network.parseAs
 import eu.kanade.tachiyomi.util.system.withIOContext
 import java.io.IOException
 import java.net.SocketTimeoutException
+import java.util.concurrent.ConcurrentHashMap
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -20,6 +22,9 @@ import uy.kohesive.injekt.injectLazy
 class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor) {
 
     private val json: Json by injectLazy()
+
+    /** Where each chapter sits on the server, keyed by Kavita chapter ID, so page updates don't look it up every time */
+    private val progressTargets = ConcurrentHashMap<Int, ProgressDto>()
 
     private val authClient = client.newBuilder()
         .dns(Dns.SYSTEM)
@@ -216,7 +221,38 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         return getTrackSearch(track.tracking_url)
     }
 
+    /** Marks chapters read or unread on the server, by their Kavita chapter IDs */
+    suspend fun setChaptersRead(seriesUrl: String, chapterIds: List<Int>, read: Boolean) = withIOContext {
+        val endpoint = if (read) "mark-multiple-read" else "mark-multiple-unread"
+        val body = MarkChaptersReadDto(seriesId = getIdFromUrl(seriesUrl), volumeIds = emptyList(), chapterIds = chapterIds)
+        authClient.newCall(POST("${getApiFromUrl(seriesUrl)}/Reader/$endpoint", body = jsonBody(json.encodeToString(body))))
+            .awaitSuccess()
+            .close()
+    }
+
+    /** Saves the page reached in a chapter. Pages count from 0, as they do in the app */
+    suspend fun setPageProgress(seriesUrl: String, chapterId: Int, page: Int) = withIOContext {
+        val apiUrl = getApiFromUrl(seriesUrl)
+        val target = progressTargets[chapterId] ?: run {
+            val chapter = authClient.newCall(GET("$apiUrl/Chapter?chapterId=$chapterId")).awaitSuccess().parseAs<ChapterDto>()
+            val series = authClient.newCall(GET(seriesUrl)).awaitSuccess().parseAs<SeriesDto>()
+            val volumeId = chapter.volumeId?.takeIf { it > 0 }
+                ?: throw IOException("Kavita didn't say which volume chapter $chapterId is in")
+            ProgressDto(volumeId = volumeId, chapterId = chapterId, pageNum = 0, seriesId = series.id, libraryId = series.libraryId)
+                .also { progressTargets[chapterId] = it }
+        }
+        authClient.newCall(POST("$apiUrl/Reader/progress", body = jsonBody(json.encodeToString(target.copy(pageNum = page)))))
+            .awaitSuccess()
+            .close()
+    }
+
+    private fun jsonBody(body: String) = body.toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+
     companion object {
+        /** Kavita's ID for a chapter, from the URL the extension gives it */
+        fun chapterId(chapterUrl: String): Int? =
+            chapterUrl.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
+
         private const val UNNUMBERED_NUMBER = -100_000f
         private const val SPECIAL_NUMBER = 100_000f
     }

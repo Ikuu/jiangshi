@@ -58,6 +58,22 @@ data class ChapterDto(
 )
 
 @Serializable
+data class MarkChaptersReadDto(
+    val seriesId: Int,
+    val volumeIds: List<Int>,
+    val chapterIds: List<Int>,
+)
+
+@Serializable
+data class ProgressDto(
+    val volumeId: Int,
+    val chapterId: Int,
+    val pageNum: Int,
+    val seriesId: Int,
+    val libraryId: Int,
+)
+
+@Serializable
 data class LibraryDto(
     val id: Int,
     val type: Int,

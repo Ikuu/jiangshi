@@ -636,7 +636,7 @@ class RecentsPresenter(
             updateChapter.await(chapter.toProgressUpdate())
             getRecents()
             chapter.manga_id?.let { getManga.awaitById(it) }?.let { manga ->
-                trackManager.suwayomi.updateChaptersRead(manga, listOf(chapter.chapter_number), read)
+                trackManager.updateServerChaptersRead(manga, listOf(chapter), read)
             }
         }
     }

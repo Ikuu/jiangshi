@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
+import eu.kanade.tachiyomi.data.track.kavita.KavitaApi
 import eu.kanade.tachiyomi.data.track.kavita.KavitaChapterInfo
 import eu.kanade.tachiyomi.data.track.kavita.KavitaEntryType
 import eu.kanade.tachiyomi.data.track.kavita.KavitaLibraryTypes
@@ -425,8 +426,7 @@ class MangaDetailsPresenter(
 
     private fun kavitaInfo(chapter: Chapter): KavitaChapterInfo? {
         val chapters = kavitaLayout?.chapters ?: return null
-        val kavitaId = chapter.url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
-        return kavitaId?.let { chapters[it] }
+        return KavitaApi.chapterId(chapter.url)?.let { chapters[it] }
     }
 
     /**
@@ -880,8 +880,7 @@ class MangaDetailsPresenter(
             }
             updateChapter.awaitAll(updates)
             presenterScope.launchNonCancellableIO {
-                Injekt.get<TrackManager>().suwayomi
-                    .updateChaptersRead(manga, selectedChapters.map { it.chapter_number }, read)
+                Injekt.get<TrackManager>().updateServerChaptersRead(manga, selectedChapters.map { it.chapter }, read)
             }
             if (read && deleteNow && preferences.removeAfterMarkedAsRead().get()) {
                 deleteChapters(selectedChapters, false)

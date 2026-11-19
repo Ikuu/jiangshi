@@ -56,8 +56,11 @@ import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.system.withUIContext
 import java.util.Date
 import java.util.concurrent.CancellationException
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -190,6 +193,10 @@ class ReaderViewModel(
 
     private var hasTrackers: Boolean = false
     private var suwayomiPageSync: Job? = null
+    private var kavitaSync: Job? = null
+    private var kavitaSyncIsPage = false
+    private val kavitaSyncLock = Any()
+    private val kavitaFinishedChapterIds = ConcurrentHashMap.newKeySet<Long>()
     private suspend fun checkTrackers(manga: Manga) = getTrack.awaitAllByMangaId(manga.id).isNotEmpty()
 
     init {
@@ -471,6 +478,7 @@ class ReaderViewModel(
 
     fun toggleRead(chapter: Chapter) {
         chapter.read = !chapter.read
+        if (!chapter.read) chapter.id?.let(kavitaFinishedChapterIds::remove)
         val lastPageToSave = if (chapter.read) chapter.last_page_read.toLong() else 0L
         viewModelScope.launchNonCancellableIO {
             updateChapter.await(
@@ -483,7 +491,7 @@ class ReaderViewModel(
                 )
             )
             val manga = manga ?: return@launchNonCancellableIO
-            Injekt.get<TrackManager>().suwayomi.updateChaptersRead(manga, listOf(chapter.chapter_number), chapter.read)
+            Injekt.get<TrackManager>().updateServerChaptersRead(manga, listOf(chapter), chapter.read)
         }
     }
     fun toggleBookmark(chapter: Chapter) {
@@ -668,10 +676,9 @@ class ReaderViewModel(
             readerChapter.chapter.last_page_read = page.index
             readerChapter.chapter.pages_left = (readerChapter.pages?.size ?: page.index) - page.index
             // For double pages, check if the second to last page is doubled up
-            if (
-                (readerChapter.pages?.lastIndex == page.index && page.firstHalf != true) ||
+            val finished = (readerChapter.pages?.lastIndex == page.index && page.firstHalf != true) ||
                 (hasExtraPage && readerChapter.pages?.lastIndex?.minus(1) == page.index)
-            ) {
+            if (finished) {
                 onChapterReadComplete(readerChapter)
             }
 
@@ -685,6 +692,42 @@ class ReaderViewModel(
                 )
             )
             scheduleSuwayomiPageSync(readerChapter.chapter)
+            scheduleKavitaSync(readerChapter.chapter, page.index, finished)
+        }
+    }
+
+    /**
+     * Sends the page reached to Kavita once page turns settle, or that the chapter's finished straight away.
+     * Page turns are saved in parallel, so a page can be scheduled after the chapter's finished. Updates go one
+     * after another and a page is only sent while the chapter's still unread, so a page can't undo the read mark.
+     */
+    private fun scheduleKavitaSync(chapter: Chapter, page: Int, finished: Boolean) {
+        val manga = manga ?: return
+        val kavita = Injekt.get<TrackManager>().kavita
+        if (preferences.incognitoMode().get() || source?.let(kavita::accept) != true) return
+        if (finished) {
+            // Going back and forth on the last page shouldn't mark it read again each time
+            val id = chapter.id ?: return
+            if (!kavitaFinishedChapterIds.add(id)) return
+        } else if (chapter.read || page <= 0) {
+            return
+        }
+
+        synchronized(kavitaSyncLock) {
+            val previous = kavitaSync
+            val cancelPrevious = kavitaSyncIsPage
+            kavitaSyncIsPage = !finished
+            kavitaSync = launchIO {
+                // A page still waiting to be sent is dropped. Anything already sending is let finish
+                if (cancelPrevious) previous?.cancelAndJoin() else previous?.join()
+                if (!finished) delay(SERVER_PAGE_SYNC_DELAY)
+                withContext(NonCancellable) {
+                    when {
+                        finished -> kavita.updateChaptersRead(manga, listOf(chapter), true)
+                        !chapter.read -> kavita.updatePageProgress(manga, chapter, page)
+                    }
+                }
+            }
         }
     }
 
@@ -703,7 +746,7 @@ class ReaderViewModel(
 
         suwayomiPageSync?.cancel()
         suwayomiPageSync = launchIO {
-            delay(SUWAYOMI_PAGE_SYNC_DELAY)
+            delay(SERVER_PAGE_SYNC_DELAY)
             try {
                 val url = suwayomi.seriesUrl(manga, getTrack.awaitAllByMangaId(manga.id))
                 suwayomi.api.setPageProgress(url, chapterNumber, page)
@@ -1203,6 +1246,6 @@ class ReaderViewModel(
     }
 
     companion object {
-        private const val SUWAYOMI_PAGE_SYNC_DELAY = 5000L
+        private const val SERVER_PAGE_SYNC_DELAY = 5000L
     }
 }

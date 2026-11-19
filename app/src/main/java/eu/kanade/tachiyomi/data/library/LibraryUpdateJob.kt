@@ -247,6 +247,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
             if (!hasDownloads) {
                 hasDownloads = results.any { it }
             }
+            syncSkippedSuwayomiProgress()
             finishUpdates()
         }
     }
@@ -455,6 +456,7 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                     sendUpdate(manga.manga.id)
                 }
             }
+            syncSuwayomiProgress(manga.manga)
             return@coroutineScope hasDownloads
         } catch (e: Exception) {
             if (e !is CancellationException) {
@@ -462,6 +464,32 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
                 Logger.e { "Failed updating: ${manga.manga.title}: $e" }
             }
             return@coroutineScope false
+        }
+    }
+
+    /** Keeps unread counts in step with the Suwayomi server without opening each series. */
+    private suspend fun syncSuwayomiProgress(manga: Manga) {
+        val suwayomi = trackManager.suwayomi
+        if (!suwayomi.accept(sourceManager.getOrStub(manga.source))) return
+        val chapters = getChapter.awaitAll(manga.id!!, false)
+        if (suwayomi.syncChapterProgress(manga, chapters, getTrack.awaitAllByMangaId(manga.id))) {
+            sendUpdate(manga.id)
+        }
+    }
+
+    /**
+     * Series skipped by the update restrictions aren't fetched from their source, but their read status
+     * only needs the user's own Suwayomi server, so it's still brought in.
+     */
+    private suspend fun syncSkippedSuwayomiProgress() {
+        for (manga in skippedUpdates.keys.toList()) {
+            if (isStopped) return
+            try {
+                syncSuwayomiProgress(manga)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Logger.w(e) { "Could not sync Suwayomi progress for ${manga.title}" }
+            }
         }
     }
 

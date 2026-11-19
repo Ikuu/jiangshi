@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
@@ -16,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import uy.kohesive.injekt.injectLazy
+import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
 import yokai.util.lang.getString
@@ -25,6 +27,7 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     private val preferences: PreferencesHelper by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
     private val getTrack: GetTrack by injectLazy()
+    private val updateChapter: UpdateChapter by injectLazy()
     private val serverTrackers = ConcurrentHashMap<String, List<ServerTrackerInfo>>()
 
     // Chapters sync one by one when a series opens. The server's last read chapter is the most
@@ -116,6 +119,52 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         } catch (e: Exception) {
             Logger.w(e) { "Could not update read chapters on Suwayomi for ${manga.url}" }
         }
+    }
+
+    /**
+     * Brings in chapters read and pages reached on the server, matching chapters by number, and saves them.
+     * Pages only move forward. A chapter goes back to unread only when reads normally reach the server, so
+     * that being unread there means it was unmarked and not that it was never sent.
+     * Returns whether any chapter changed.
+     */
+    suspend fun syncChapterProgress(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Boolean {
+        val remote = try {
+            api.getChapterProgress(seriesUrl(manga, tracks))
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not get Suwayomi progress for ${manga.url}" }
+            return false
+        }.groupBy { it.chapterNumber }
+
+        val isLinked = tracks.any { it.sync_id == id }
+        val hasPendingUpdates = preferences.trackingsToAddOnline().get()
+            .any { it.startsWith("${manga.id}:$id:") }
+        val serverDecidesUnread = isLinked && !hasPendingUpdates &&
+            preferences.autoUpdateTrack().get() && preferences.trackMarkedAsRead().get()
+
+        val updates = chapters.mapNotNull { chapter ->
+            if (chapter.chapter_number < 0f) return@mapNotNull null
+            val matches = remote[chapter.chapter_number] ?: return@mapNotNull null
+            val furthestPage = matches.maxOf { it.lastPageRead }
+            val pagesLeft = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
+            val isReadOnServer = matches.any { it.isRead }
+            if (chapter.read) {
+                if (isReadOnServer || !serverDecidesUnread) return@mapNotNull null
+                chapter.read = false
+                chapter.last_page_read = furthestPage
+                chapter.pages_left = pagesLeft
+            } else if (isReadOnServer) {
+                chapter.read = true
+            } else if (furthestPage > chapter.last_page_read) {
+                chapter.last_page_read = furthestPage
+                chapter.pages_left = pagesLeft
+            } else {
+                return@mapNotNull null
+            }
+            chapter.toProgressUpdate()
+        }
+        if (updates.isEmpty()) return false
+        updateChapter.awaitAll(updates)
+        return true
     }
 
     override suspend fun bind(track: Track): Track {

@@ -376,50 +376,11 @@ class MangaDetailsPresenter(
         withUIContext { view?.refreshTracking(trackList) }
     }
 
-    /**
-     * Brings in chapters read and pages reached on the Suwayomi server, matching chapters by number.
-     * Pages only move forward. A chapter goes back to unread only when reads normally reach the
-     * server, so that being unread there means it was unmarked and not that it was never sent.
-     */
+    /** Brings in chapters read and pages reached on the Suwayomi server. */
     private suspend fun fetchSuwayomiProgress() {
         val suwayomi = Injekt.get<TrackManager>().suwayomi
         if (!suwayomi.accept(source)) return
-        val remote = try {
-            suwayomi.api.getChapterProgress(suwayomi.seriesUrl(manga, tracks))
-        } catch (e: Exception) {
-            Logger.w(e) { "Could not get Suwayomi progress for ${manga.url}" }
-            return
-        }.groupBy { it.chapterNumber }
-
-        val isLinked = tracks.any { it.sync_id == suwayomi.id }
-        val hasPendingUpdates = preferences.trackingsToAddOnline().get()
-            .any { it.startsWith("${manga.id}:${suwayomi.id}:") }
-        val serverDecidesUnread = isLinked && !hasPendingUpdates &&
-            preferences.autoUpdateTrack().get() && preferences.trackMarkedAsRead().get()
-
-        val updates = allChapters.mapNotNull { item ->
-            if (item.chapter_number < 0f) return@mapNotNull null
-            val matches = remote[item.chapter_number] ?: return@mapNotNull null
-            val furthestPage = matches.maxOf { it.lastPageRead }
-            val pagesLeft = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
-            val isReadOnServer = matches.any { it.isRead }
-            if (item.read) {
-                if (isReadOnServer || !serverDecidesUnread) return@mapNotNull null
-                item.read = false
-                item.last_page_read = furthestPage
-                item.pages_left = pagesLeft
-            } else if (isReadOnServer) {
-                item.read = true
-            } else if (furthestPage > item.last_page_read) {
-                item.last_page_read = furthestPage
-                item.pages_left = pagesLeft
-            } else {
-                return@mapNotNull null
-            }
-            item.toProgressUpdate()
-        }
-        if (updates.isEmpty()) return
-        updateChapter.awaitAll(updates)
+        if (!suwayomi.syncChapterProgress(manga, allChapters, tracks)) return
         getChapters()
         withUIContext { view?.updateChapters() }
     }

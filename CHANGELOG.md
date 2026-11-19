@@ -6,6 +6,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ### Additions
 - Kavita series send the page you reach to the server as you read, so Kavita's reader picks up where you left off. Finishing a chapter marks it read on Kavita, including series outside the library or not linked to the tracker. Reading in incognito mode isn't sent
+- Library updates bring in chapters read on a Suwayomi server, so unread counts stay current without opening each series. This includes series the update restrictions skip, as it only asks your own server
 
 ### Bug Fixes
 - Fixed finished Kavita chapters marked unread turning back to read the next time the series was opened. Marking chapters read or unread now reaches the server from the series page, the library, Recents and the reader

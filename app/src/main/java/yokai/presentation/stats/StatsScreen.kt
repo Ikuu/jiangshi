@@ -42,6 +42,8 @@ import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
@@ -142,7 +144,7 @@ private fun StatsContent(
                 } else {
                     timeSection(stats, time, context)
                     seriesSection(state, time, openManga)
-                    typesSection(stats, time)
+                    typesSection(state, time)
                 }
             }
 
@@ -326,6 +328,7 @@ private fun LazyListScope.seriesSection(
                     SeriesRow(
                         rank = index + 1,
                         series = series,
+                        entries = LocalContext.current.entriesRead(state, series),
                         manga = state.mangaByKey[series.key],
                         fraction = series.time.toFloat() / maxTime,
                         time = time,
@@ -342,7 +345,15 @@ private fun LazyListScope.seriesSection(
                 CardTitle(stringResource(MR.strings.stats_finished_series))
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     state.finished.forEach { series ->
-                        SeriesRow(rank = null, series = series, manga = state.mangaByKey[series.key], fraction = null, time = time, onClick = openManga)
+                        SeriesRow(
+                            rank = null,
+                            series = series,
+                            entries = LocalContext.current.entriesRead(state, series),
+                            manga = state.mangaByKey[series.key],
+                            fraction = null,
+                            time = time,
+                            onClick = openManga,
+                        )
                     }
                 }
             }
@@ -363,6 +374,7 @@ private fun LazyListScope.seriesSection(
 private fun SeriesRow(
     rank: Int?,
     series: SeriesStats,
+    entries: String,
     manga: Manga?,
     fraction: Float?,
     time: (Long) -> String,
@@ -392,13 +404,7 @@ private fun SeriesRow(
         Column(Modifier.weight(1f)) {
             Text(series.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                text = listOfNotNull(
-                    stringResource(categoryName(series.category)),
-                    time(series.time),
-                    series.chaptersFinished.takeIf { it > 0 }?.let {
-                        pluralStringResource(MR.plurals.chapters_plural, it, it.toString())
-                    },
-                ).joinToString(" · "),
+                text = listOf(stringResource(categoryName(series.category)), time(series.time), entries).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -412,7 +418,8 @@ private fun SeriesRow(
     }
 }
 
-private fun LazyListScope.typesSection(stats: ReadingStats, time: (Long) -> String) {
+private fun LazyListScope.typesSection(state: StatsScreenModel.State.Success, time: (Long) -> String) {
+    val stats = state.stats
     item(key = "types_header") { SectionHeader(stringResource(MR.strings.stats_section_types)) }
     item(key = "types") {
         val context = LocalContext.current
@@ -424,9 +431,11 @@ private fun LazyListScope.typesSection(stats: ReadingStats, time: (Long) -> Stri
                 detail = { index ->
                     val type = stats.types[index]
                     listOfNotNull(
-                        type.chaptersFinished.takeIf { it > 0 }?.let {
-                            context.getString(MR.plurals.chapters_plural, it, it.toString())
-                        },
+                        stats.series
+                            .filter { it.category == type.category }
+                            .flatMap { series -> series.finishedChapterUrls.map { state.entryKind(series, it) } }
+                            .takeIf { it.isNotEmpty() }
+                            ?.let { context.getString(MR.strings.stats_entries_read, ChapterUtil.entryCountText(context, it)) },
                         type.timePerChapter?.let { context.getString(MR.strings.stats_per_chapter, time(it)) },
                         type.pagesPerMinute?.let { context.getString(MR.strings.stats_pages_per_minute, numbers.format(it)) },
                     ).joinToString(" · ").ifEmpty { null }
@@ -528,6 +537,25 @@ private fun Message(title: String, body: String?) {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+private fun StatsScreenModel.State.Success.entryKind(series: SeriesStats, url: String): EntryKind =
+    (entryKinds[series.key]?.of(url) ?: EntryKind.Chapter).forCategory(series.category)
+
+/** A numbered chapter of a comic is an issue, even where Kavita files it under a volume. */
+private fun EntryKind.forCategory(category: ReadingCategory): EntryKind =
+    if (this == EntryKind.Chapter && category == ReadingCategory.COMIC) EntryKind.Issue else this
+
+/** "3 issues read", or "0 volumes read" in the series' usual kind of entry when none were finished. */
+private fun Context.entriesRead(state: StatsScreenModel.State.Success, series: SeriesStats): String {
+    val kinds = series.finishedChapterUrls.map { state.entryKind(series, it) }
+    val count = if (kinds.isEmpty()) {
+        val usual = (state.entryKinds[series.key]?.usual ?: EntryKind.Chapter).forCategory(series.category)
+        getString(usual.plural, 0, 0)
+    } else {
+        ChapterUtil.entryCountText(this, kinds)
+    }
+    return getString(MR.strings.stats_entries_read, count)
 }
 
 private fun categoryName(category: ReadingCategory) = when (category) {

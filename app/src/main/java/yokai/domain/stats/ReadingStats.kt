@@ -20,10 +20,13 @@ data class SeriesStats(
     val title: String,
     val seriesType: Int,
     val time: Long,
-    val chaptersFinished: Int,
+    /** URLs of the chapters, issues or volumes finished in the period. */
+    val finishedChapterUrls: Set<String>,
     val pagesRead: Int,
     val lastReadAt: Long,
 ) {
+    val chaptersFinished: Int get() = finishedChapterUrls.size
+
     val category: ReadingCategory get() = ReadingCategory.of(seriesType)
 }
 
@@ -113,7 +116,7 @@ data class ReadingStats(
                         title = latest.mangaTitle,
                         seriesType = latest.seriesType,
                         time = seriesSessions.sumOf { it.duration },
-                        chaptersFinished = seriesSessions.finishedChapters(),
+                        finishedChapterUrls = seriesSessions.filter { it.completed }.map { it.chapterUrl }.toSet(),
                         pagesRead = seriesSessions.sumOf { it.pagesRead },
                         lastReadAt = latest.endedAt,
                     )

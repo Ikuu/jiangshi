@@ -46,12 +46,17 @@ import eu.kanade.tachiyomi.util.lang.toNormalized
 import eu.kanade.tachiyomi.util.system.getResourceColor
 import eu.kanade.tachiyomi.util.system.isInNightMode
 import eu.kanade.tachiyomi.util.system.isLTR
+import eu.kanade.tachiyomi.util.system.timeSpanFromNow
 import eu.kanade.tachiyomi.util.view.resetStrokeColor
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 import io.noties.markwon.Markwon
 import io.noties.markwon.SoftBreakAddsNewLinePlugin
 import android.text.method.LinkMovementMethod
+import yokai.domain.stats.SeriesReadingSummary
 import yokai.i18n.MR
+import yokai.presentation.stats.formatReadTime
 import yokai.util.coil.loadManga
 import yokai.util.lang.getString
 import android.R as AR
@@ -78,6 +83,7 @@ class MangaHeaderHolder(
     private val markwon by lazy { Markwon.builder(itemView.context).usePlugin(SoftBreakAddsNewLinePlugin.create()).build() }
 
     private var showReadingButton = true
+    private var showReadingStats = false
     private var showMoreButton = true
     var hadSelection = false
     private var canCollapse = true
@@ -423,6 +429,13 @@ class MangaHeaderHolder(
             }
         }
 
+        with(binding.readingStatsText) {
+            val summary = presenter.readingSummary.takeIf { !item.isLocked }
+            text = summary?.let { readingStatsText(it) }
+            showReadingStats = summary != null
+            isVisible = showReadingStats
+        }
+
         binding.chaptersTitle.text = ChapterUtil.entryCountText(itemView.context, presenter.chapters.map { presenter.entryKind(it) })
 
         binding.topView.updateLayoutParams<ConstraintLayout.LayoutParams> {
@@ -662,6 +675,7 @@ class MangaHeaderHolder(
         if (!canCollapse) return
         binding.subItemGroup.isVisible = false
         binding.startReadingButton.isVisible = false
+        binding.readingStatsText.isVisible = false
         if (binding.moreButton.isVisible || binding.moreButton.isInvisible) {
             binding.moreButtonGroup.isInvisible = !isTablet
         } else {
@@ -719,6 +733,21 @@ class MangaHeaderHolder(
             }
         }
         binding.startReadingButton.isVisible = showReadingButton
+        binding.readingStatsText.isVisible = showReadingStats
+    }
+
+    private fun readingStatsText(summary: SeriesReadingSummary): String {
+        val context = itemView.context
+        val dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM)
+        return listOf(
+            context.getString(
+                MR.strings.series_stats_read_for,
+                context.formatReadTime(summary.time),
+                context.getString(MR.plurals.stats_sessions_plural, summary.sessions, summary.sessions),
+            ),
+            context.getString(MR.strings.series_stats_first_read, dateFormat.format(Date(summary.firstReadAt))),
+            context.getString(MR.strings.series_stats_last_read, summary.lastReadAt.timeSpanFromNow(context)),
+        ).joinToString(" · ")
     }
 
     override fun onLongClick(view: View?): Boolean {

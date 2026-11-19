@@ -15,6 +15,11 @@
         <item quantity="other">%1$d days</item>
     </plurals>
 
+    <plurals name="stats_sessions_plural">
+        <item quantity="one">%1$d session</item>
+        <item quantity="other">%1$d sessions</item>
+    </plurals>
+
     <plurals name="volumes_plural">
         <item quantity="one">%1$s volume</item>
         <item quantity="other">%1$s volumes</item>

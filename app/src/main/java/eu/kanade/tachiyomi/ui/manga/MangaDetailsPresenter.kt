@@ -106,6 +106,8 @@ import yokai.domain.chapter.interactor.GetAvailableScanlators
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
+import yokai.domain.stats.SeriesReadingSummary
+import yokai.domain.stats.interactor.GetReadingSessions
 import yokai.domain.library.custom.model.CustomMangaInfo
 import yokai.domain.manga.interactor.GetExcludedScanlators
 import yokai.domain.manga.interactor.GetManga
@@ -139,6 +141,7 @@ class MangaDetailsPresenter(
     private val getTrack: GetTrack by injectLazy()
     private val insertTrack: InsertTrack by injectLazy()
     private val getHistory: GetHistory by injectLazy()
+    private val getReadingSessions: GetReadingSessions by injectLazy()
     private val getExcludedScanlators: GetExcludedScanlators by injectLazy()
 
     private val networkPreferences: NetworkPreferences by injectLazy()
@@ -175,6 +178,10 @@ class MangaDetailsPresenter(
         private set
 
     var allHistory: List<History> = emptyList()
+        private set
+
+    /** Time spent reading this series since stats began, or null if it hasn't been read since. */
+    var readingSummary: SeriesReadingSummary? = null
         private set
 
     val headerItem: MangaHeaderItem by lazy { MangaHeaderItem(mangaId, view?.fromCatalogue == true)}
@@ -527,6 +534,16 @@ class MangaDetailsPresenter(
         allChapterScanlators = allChapters.mapNotNull { it.chapter.scanlator }.toSet()
 
         this.chapters = applyChapterFilters(chapters)
+        getReadingSummary()
+    }
+
+    private suspend fun getReadingSummary() {
+        readingSummary = try {
+            SeriesReadingSummary.from(getReadingSessions.awaitByManga(manga.source, manga.url))
+        } catch (e: Exception) {
+            Logger.e(e) { "Unable to load reading stats for ${manga.url}" }
+            null
+        }
     }
 
     private suspend fun getHistory() {

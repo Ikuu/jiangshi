@@ -3,18 +3,28 @@ package yokai.presentation.stats
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
+import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.data.track.kavita.KavitaEntryType
 import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil
+import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
 import eu.kanade.tachiyomi.util.system.launchIO
 import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
+import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.GetManga
 import yokai.domain.stats.ReadingCategory
@@ -29,10 +39,17 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private val getReadingSessions: GetReadingSessions by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val getManga: GetManga by injectLazy()
+    private val getChapter: GetChapter by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
+    private val trackManager: TrackManager by injectLazy()
 
     private var sessions: List<ReadingSession> = emptyList()
     private var mangaByKey: Map<SeriesKey, Manga> = emptyMap()
+    private var entryKinds: Map<SeriesKey, EntryKinds> = emptyMap()
+    private var localKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
+
+    /** Entry types from the Kavita server, kept for as long as the screen is open. */
+    private var kavitaKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
     private var library: List<LibraryManga> = emptyList()
     private var librarySummary: LibrarySummary? = null
 
@@ -55,8 +72,65 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             mangaByKey = getManga.awaitAll()
                 .associateBy { SeriesKey(it.source, it.url) }
                 .filterKeys { it in keys }
+            localKinds = mangaByKey.mapValues { (_, manga) ->
+                manga.id?.let { getChapter.awaitAll(it, false) }.orEmpty().associate { it.url to ChapterUtil.entryKind(it) }
+            }
+            updateEntryKinds()
             librarySummary = librarySummary()
             mutableState.update { build(period) }
+            fetchKavitaKinds()
+        }
+    }
+
+    /**
+     * Chapter names don't always say whether an entry is a whole volume or an issue, so for Kavita series
+     * ask the server, as the series page does. Local guesses show until it answers.
+     */
+    private suspend fun fetchKavitaKinds() {
+        val kavita = trackManager.kavita
+        val missing = mangaByKey.keys
+            .filter { it !in kavitaKinds && kavita.accept(sourceManager.getOrStub(it.source)) }
+        if (missing.isEmpty()) return
+
+        val fetched = coroutineScope {
+            missing.map { key ->
+                async {
+                    try {
+                        key to kavita.api.getSeriesLayout(key.url).chapters
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Logger.w(e) { "Could not get Kavita volumes for ${key.url}" }
+                        null
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+        if (fetched.isEmpty()) return
+
+        kavitaKinds = kavitaKinds + fetched.associate { (key, chapters) ->
+            key to localKinds[key].orEmpty().keys.mapNotNull { url ->
+                val id = url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
+                val type = id?.let { chapters[it]?.type } ?: return@mapNotNull null
+                url to when (type) {
+                    KavitaEntryType.Volume -> EntryKind.Volume
+                    KavitaEntryType.Chapter -> EntryKind.Chapter
+                    KavitaEntryType.Issue -> EntryKind.Issue
+                    KavitaEntryType.Special -> EntryKind.Special
+                }
+            }.toMap()
+        }
+        updateEntryKinds()
+        val period = (state.value as? State.Success)?.period ?: return
+        mutableState.update { build(period) }
+    }
+
+    private fun updateEntryKinds() {
+        entryKinds = localKinds.mapValues { (key, local) ->
+            val kinds = local + kavitaKinds[key].orEmpty()
+            EntryKinds(
+                byUrl = kinds,
+                usual = kinds.values.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: EntryKind.Chapter,
+            )
         }
     }
 
@@ -87,6 +161,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             stats = stats,
             hasAnyReading = sessions.isNotEmpty(),
             mangaByKey = mangaByKey,
+            entryKinds = entryKinds,
             finished = finished,
             topGenres = genres.entries.sortedByDescending { it.value }.take(TOP_GENRES).map { it.key to it.value },
             library = librarySummary,
@@ -131,6 +206,11 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
 
     data class SeriesKey(val source: Long, val url: String)
 
+    /** Whether a series' entries are chapters, issues or volumes, so counts use the right word. */
+    data class EntryKinds(val byUrl: Map<String, EntryKind>, val usual: EntryKind) {
+        fun of(url: String): EntryKind = byUrl[url] ?: usual
+    }
+
     @Immutable
     data class LibrarySummary(
         val seriesCount: Int,
@@ -152,6 +232,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             val stats: ReadingStats,
             val hasAnyReading: Boolean,
             val mangaByKey: Map<SeriesKey, Manga>,
+            val entryKinds: Map<SeriesKey, EntryKinds>,
             val finished: List<SeriesStats>,
             val topGenres: List<Pair<String, Long>>,
             val library: LibrarySummary?,

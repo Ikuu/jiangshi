@@ -111,7 +111,11 @@ import yokai.domain.chapter.interactor.GetAvailableScanlators
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
+import yokai.domain.stats.ReadingCategory
+import yokai.domain.stats.ReadingPace
+import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.SeriesReadingSummary
+import yokai.domain.stats.UnreadEntry
 import yokai.domain.stats.interactor.GetReadingSessions
 import yokai.domain.library.custom.model.CustomMangaInfo
 import yokai.domain.manga.interactor.GetExcludedScanlators
@@ -188,6 +192,17 @@ class MangaDetailsPresenter(
     /** Time spent reading this series since stats began, or null if it hasn't been read since. */
     var readingSummary: SeriesReadingSummary? = null
         private set
+
+    /** This series' reading sessions, oldest first. */
+    var readingSessions: List<ReadingSession> = emptyList()
+        private set
+
+    /** Roughly how long the unread chapters would take at the usual pace, or null with no pace to go on. */
+    var readingTimeLeft: Long? = null
+        private set
+
+    /** Every series' sessions, for a pace before this series has its own. Loaded once, as a session more changes little. */
+    private var allReadingSessions: List<ReadingSession>? = null
 
     val headerItem: MangaHeaderItem by lazy { MangaHeaderItem(mangaId, view?.fromCatalogue == true)}
     var tabletChapterHeaderItem: MangaHeaderItem? = null
@@ -366,6 +381,7 @@ class MangaDetailsPresenter(
             return
         }
         kavitaLayout = layout
+        updateReadingTimeLeft()
         isInWantToRead = try {
             kavita.api.isInWantToRead(manga.url)
         } catch (e: Exception) {
@@ -608,13 +624,37 @@ class MangaDetailsPresenter(
     }
 
     private suspend fun getReadingSummary() {
-        readingSummary = try {
-            SeriesReadingSummary.from(getReadingSessions.awaitByManga(manga.source, manga.url))
+        try {
+            readingSessions = getReadingSessions.awaitByManga(manga.source, manga.url).sortedBy { it.startedAt }
+            readingSummary = SeriesReadingSummary.from(readingSessions)
+            if (allReadingSessions == null) allReadingSessions = getReadingSessions.awaitAll()
+            updateReadingTimeLeft()
         } catch (e: Exception) {
             Logger.e(e) { "Unable to load reading stats for ${manga.url}" }
-            null
+            readingSummary = null
+            readingTimeLeft = null
         }
     }
+
+    /** Works out the time left again, such as once Kavita has said how long each entry is. */
+    private fun updateReadingTimeLeft() {
+        val all = allReadingSessions ?: return
+        readingTimeLeft = ReadingPace.timeLeft(
+            entries = unreadEntries(),
+            seriesSessions = readingSessions,
+            category = ReadingCategory.of(readingSessions.lastOrNull()?.seriesType ?: manga.seriesType(sourceManager = sourceManager)),
+            allSessions = all,
+        )
+    }
+
+    /**
+     * What's left of each unread chapter, with its pages where Kavita or the reader knows them. Chapters that
+     * share a number, such as from different scanlators, count once.
+     */
+    private fun unreadEntries(): List<UnreadEntry> = allChapters
+        .filter { !it.read }
+        .distinctBy { if (it.chapter_number >= 0f) it.chapter_number.toString() else it.url }
+        .map { UnreadEntry.of(it.last_page_read, it.pages_left, pageCount(it.chapter)) }
 
     private suspend fun getHistory() {
         allHistory = getHistory.awaitAllByMangaId(mangaId)

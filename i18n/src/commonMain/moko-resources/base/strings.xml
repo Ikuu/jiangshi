@@ -1114,6 +1114,10 @@
     <string name="series_stats_read_for">Read for %1$s over %2$s</string>
     <string name="series_stats_first_read">first read %1$s</string>
     <string name="series_stats_last_read">last read %1$s</string>
+    <string name="series_stats_time_left">About %1$s left to read at your pace</string>
+    <string name="reading_history">Reading history</string>
+    <string name="reading_history_day">%1$s · %2$s</string>
+    <string name="reading_history_more">+%1$d more</string>
 
     <!-- Suwayomi server downloads -->
     <string name="server_downloads">Server downloads</string>

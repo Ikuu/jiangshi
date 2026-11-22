@@ -101,6 +101,7 @@ class MangaHeaderHolder(
             startReadingButton.transitionName = "details start reading transition"
             chapterLayout.setOnClickListener { adapter.delegate.showChapterFilter() }
             startReadingButton.setOnClickListener { adapter.delegate.readNextChapter(it) }
+            readingStatsText.setOnClickListener { (adapter.delegate as? MangaDetailsController)?.showReadingHistory() }
             topView.updateLayoutParams<ConstraintLayout.LayoutParams> {
                 height = adapter.delegate.topCoverHeight()
             }
@@ -431,9 +432,14 @@ class MangaHeaderHolder(
 
         with(binding.readingStatsText) {
             val summary = presenter.readingSummary.takeIf { !item.isLocked }
-            text = summary?.let { readingStatsText(it) }
-            showReadingStats = summary != null
+            val timeLeft = presenter.readingTimeLeft.takeIf { !item.isLocked }
+            text = listOfNotNull(
+                summary?.let { readingStatsText(it) },
+                timeLeft?.let { context.getString(MR.strings.series_stats_time_left, context.formatReadTime(it)) },
+            ).joinToString("\n")
+            showReadingStats = summary != null || timeLeft != null
             isVisible = showReadingStats
+            isClickable = summary != null
         }
 
         binding.chaptersTitle.text = ChapterUtil.entryCountText(itemView.context, presenter.chapters.map { presenter.entryKind(it) })

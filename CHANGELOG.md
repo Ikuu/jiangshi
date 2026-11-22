@@ -11,6 +11,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 - Statistics can track a reading goal, such as 20 chapters a week or 30 minutes a day, with progress for the current day, week, month or year and whether you're on track
 - Statistics warns when you haven't read yet today and your streak would end
 - A year in review for each year you've read in: time read compared with the year before, chapters, pages, new series, days read, longest streak, busiest month and day, favourite time of day, top series and genres, and comics, manga and webtoons compared
+- Series pages say roughly how long the unread chapters would take at your pace. It goes by pages wherever their number is known, such as for Kavita series, so a long volume counts for more than a single issue. The pace comes from the series' own reading once there's enough of it, and from series like it before that. Tap the reading line to see each day you read the series, for how long and which chapters
 
 ### Changes
 - Suwayomi tracking and sync read the per-user fields on servers with user accounts, which replace older fields Suwayomi has deprecated, and still work with servers from before user accounts

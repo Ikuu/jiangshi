@@ -158,6 +158,11 @@
         <item quantity="other">Read today to keep your %d day streak going</item>
     </plurals>
 
+    <plurals name="reading_history_finished">
+        <item quantity="one">%d finished</item>
+        <item quantity="other">%d finished</item>
+    </plurals>
+
     <plurals name="downloading_on_server">
         <item quantity="one">Downloading %d chapter on the server</item>
         <item quantity="other">Downloading %d chapters on the server</item>

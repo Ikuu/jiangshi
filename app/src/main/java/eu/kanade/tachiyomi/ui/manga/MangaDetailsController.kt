@@ -1,5 +1,10 @@
 package eu.kanade.tachiyomi.ui.manga
 
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import yokai.domain.stats.SeriesReadingDay
+import yokai.presentation.stats.formatReadTime
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -1057,6 +1062,39 @@ class MangaDetailsController :
         menuSheet.show()
     }
 
+    /** Each day this series was read, newest first, with how long and which chapters. */
+    fun showReadingHistory() {
+        val activity = activity ?: return
+        val days = SeriesReadingDay.from(presenter.readingSessions, ZoneId.systemDefault())
+        if (days.isEmpty()) return
+        val dateFormat = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault())
+        val chaptersByUrl = presenter.allChapters.associateBy { it.url }
+        val rows = days.map { day ->
+            val names = day.chapters.map { session ->
+                chaptersByUrl[session.chapterUrl]?.let { presenter.numberedName(activity, it.chapter, presenter.isComic()) }
+                    ?: "#${numberFormat.format(session.chapterNumber)}"
+            }
+            val chapters = names.take(HISTORY_CHAPTER_NAMES).joinToString(", ") +
+                if (names.size > HISTORY_CHAPTER_NAMES) {
+                    " " + activity.getString(MR.strings.reading_history_more, names.size - HISTORY_CHAPTER_NAMES)
+                } else {
+                    ""
+                }
+            val details = listOfNotNull(
+                chapters,
+                day.finishedChapterUrls.size.takeIf { it > 0 }?.let { activity.getString(MR.plurals.reading_history_finished, it, it) },
+                activity.getString(MR.plurals.pages_plural, day.pagesRead, day.pagesRead),
+            ).joinToString(" · ")
+            activity.getString(MR.strings.reading_history_day, dateFormat.format(day.date), activity.formatReadTime(day.time)) +
+                "\n" + details
+        }
+        activity.materialAlertDialog()
+            .setTitle(activity.getString(MR.strings.reading_history))
+            .setItems(rows.toTypedArray(), null)
+            .setPositiveButton(MR.strings.close, null)
+            .show()
+    }
+
     private fun showVolumeMenu(header: VolumeHeaderItem) {
         val activity = activity ?: return
         val chapters = header.chapters
@@ -2029,6 +2067,10 @@ class MangaDetailsController :
         const val SMART_SEARCH_CONFIG_EXTRA = "smartSearchConfig"
 
         const val FROM_CATALOGUE_EXTRA = "from_catalogue"
+
+        /** Chapters named on each day of the reading history before the rest are counted. */
+        private const val HISTORY_CHAPTER_NAMES = 4
+        private val numberFormat = java.text.DecimalFormat("#.###")
 
         private enum class RangeMode {
             Download,

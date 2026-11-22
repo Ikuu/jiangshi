@@ -14,6 +14,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 - Series pages say roughly how long the unread chapters would take at your pace. It goes by pages wherever their number is known, such as for Kavita series, so a long volume counts for more than a single issue. The pace comes from the series' own reading once there's enough of it, and from series like it before that. Tap the reading line to see each day you read the series, for how long and which chapters
 
 ### Changes
+- Statistics' Time to clear unread goes by each series' own pace where it has one, and by pages wherever their number is known, such as for Kavita series. Long volumes no longer count the same as single issues
 - Suwayomi tracking and sync read the per-user fields on servers with user accounts, which replace older fields Suwayomi has deprecated, and still work with servers from before user accounts
 
 ## [1.6.0] - 2026-11-19

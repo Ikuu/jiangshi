@@ -32,6 +32,9 @@ import java.time.temporal.WeekFields
 import yokai.domain.stats.GoalProgress
 import yokai.domain.stats.ReadingCategory
 import yokai.domain.stats.ReadingGoal
+import yokai.domain.stats.ReadingPace
+import yokai.domain.stats.UnreadEntry
+import eu.kanade.tachiyomi.data.track.kavita.KavitaApi
 import yokai.domain.stats.YearInReview
 import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingStats
@@ -53,6 +56,9 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private var mangaByKey: Map<SeriesKey, Manga> = emptyMap()
     private var entryKinds: Map<SeriesKey, EntryKinds> = emptyMap()
     private var localKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
+
+    /** Pages in each entry of Kavita series, by Kavita chapter ID, kept for as long as the screen is open. */
+    private var kavitaPages: Map<SeriesKey, Map<Int, Int>> = emptyMap()
 
     /** Entry types from the Kavita server, kept for as long as the screen is open. */
     private var kavitaKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
@@ -91,18 +97,20 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             updateEntryKinds()
             librarySummary = librarySummary()
             mutableState.update { build(period) }
-            fetchKavitaKinds()
+            fetchKavitaLayouts()
         }
     }
 
     /**
      * Chapter names don't always say whether an entry is a whole volume or an issue, so for Kavita series
-     * ask the server, as the series page does. Local guesses show until it answers.
+     * ask the server, as the series page does. Local guesses show until it answers. The server also says
+     * how many pages each entry has, so unread series in the library get a better time to clear them.
      */
-    private suspend fun fetchKavitaKinds() {
+    private suspend fun fetchKavitaLayouts() {
         val kavita = trackManager.kavita
-        val missing = mangaByKey.keys
-            .filter { it !in kavitaKinds && kavita.accept(sourceManager.getOrStub(it.source)) }
+        val unreadInLibrary = library.filter { it.unread > 0 }.map { SeriesKey(it.manga.source, it.manga.url) }
+        val missing = (mangaByKey.keys + unreadInLibrary)
+            .filter { it !in kavitaPages && kavita.accept(sourceManager.getOrStub(it.source)) }
         if (missing.isEmpty()) return
 
         val fetched = coroutineScope {
@@ -120,7 +128,8 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
         }
         if (fetched.isEmpty()) return
 
-        kavitaKinds = kavitaKinds + fetched.associate { (key, chapters) ->
+        kavitaPages = kavitaPages + fetched.associate { (key, chapters) -> key to chapters.mapValues { it.value.pages } }
+        kavitaKinds = kavitaKinds + fetched.filter { it.first in localKinds }.associate { (key, chapters) ->
             key to localKinds[key].orEmpty().keys.mapNotNull { url ->
                 val id = url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
                 val type = id?.let { chapters[it]?.type } ?: return@mapNotNull null
@@ -133,6 +142,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             }.toMap()
         }
         updateEntryKinds()
+        librarySummary = librarySummary()
         val period = (state.value as? State.Success)?.period ?: return
         mutableState.update { build(period) }
     }
@@ -191,22 +201,22 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
         )
     }
 
-    private fun librarySummary(): LibrarySummary? {
+    private suspend fun librarySummary(): LibrarySummary? {
         if (library.isEmpty()) return null
 
-        // Estimate the backlog from how long finished chapters took, per series type where known
-        val allTime = ReadingStats.calculate(sessions, StatsPeriod.ALL, Instant.now(), ZoneId.systemDefault())
-        val overallPerChapter = allTime.types.sumOf { it.time }
-            .takeIf { allTime.chaptersFinished > 0 }
-            ?.let { it / allTime.chaptersFinished }
-        val perChapterByType = allTime.types.mapNotNull { type -> type.timePerChapter?.let { type.category to it } }.toMap()
-        val backlog = overallPerChapter?.let { fallback ->
-            library.sumOf { item ->
-                val category = ReadingCategory.of(item.manga.seriesType(sourceManager = sourceManager))
-                val perChapter = perChapterByType[category] ?: fallback
-                item.unread * perChapter
-            }
+        // Estimate the backlog at each series' pace, going by pages where Kavita or the reader knows them
+        val sessionsBySeries = sessions.groupBy { SeriesKey(it.mangaSource, it.mangaUrl) }
+        val estimates = library.filter { it.unread > 0 }.mapNotNull { item ->
+            val manga = item.manga
+            val key = SeriesKey(manga.source, manga.url)
+            val pages = kavitaPages[key]
+            val entries = manga.id?.let { getChapter.awaitUnread(it, true) }.orEmpty()
+                .distinctBy { if (it.chapter_number >= 0f) it.chapter_number.toString() else it.url }
+                .map { UnreadEntry.of(it.last_page_read, it.pages_left, pages?.get(KavitaApi.chapterId(it.url))) }
+            val category = ReadingCategory.of(manga.seriesType(sourceManager = sourceManager))
+            ReadingPace.forSeries(sessionsBySeries[key].orEmpty(), category, sessions).timeLeft(entries)
         }
+        val backlog = estimates.takeIf { it.isNotEmpty() }?.sum()
 
         val stalledBefore = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(STALLED_DAYS)
         return LibrarySummary(
@@ -238,7 +248,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     data class LibrarySummary(
         val seriesCount: Int,
         val unreadChapters: Int,
-        /** Null until a chapter has been finished, since there's no pace to go on. */
+        /** Null until there's enough reading to know a pace, or nothing is unread. */
         val backlogTime: Long?,
         val byStatus: List<Pair<Int, Int>>,
         val bySource: List<Pair<String, Int>>,

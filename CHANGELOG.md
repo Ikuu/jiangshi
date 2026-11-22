@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-22
+
 ### Additions
 - Bookmarks on Suwayomi series stay in step with the server, in both directions, like read status. The first time a series syncs, chapters bookmarked on either side end up bookmarked on both. Bookmarks that can't be sent, such as while offline, are kept, sent on the next sync and listed in Waiting to send
 - Suwayomi series can download chapters on the server. Long-press a chapter or volume to download it on the server or remove it, or use Server downloads in the series menu for all unread chapters or to remove read ones. Chapter rows say when a chapter is on the server, queued there or downloading, and follow the server's progress

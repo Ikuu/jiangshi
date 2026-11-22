@@ -342,21 +342,23 @@ open class BrowseSourcePresenter(
         restartPager(filters = filters)
     }
 
-    /** Whether this is a Kavita source, which can list the series On Deck on its server. */
-    val supportsOnDeck: Boolean
+    /** Whether this is a Kavita source, which can show lists from its server such as On Deck and Want to Read. */
+    val supportsKavitaLists: Boolean
         get() = source is ConfigurableSource && Injekt.get<TrackManager>().kavita.accept(source)
 
-    var useOnDeck = false
+    /** The Kavita list being shown in place of Popular or Latest, if any. */
+    var kavitaList: KavitaList? = null
 
     open fun createPager(query: String, filters: FilterList): Pager {
-        return if (useOnDeck && supportsOnDeck && query.isBlank() && !filtersChanged) {
-            KavitaOnDeckPager(source)
+        val list = kavitaList
+        return if (list != null && supportsKavitaLists && query.isBlank() && !filtersChanged) {
+            KavitaListPager(source, list)
         } else if (useLatest && query.isBlank() && !filtersChanged) {
-            useOnDeck = false
+            kavitaList = null
             LatestUpdatesPager(source)
         } else {
             useLatest = false
-            useOnDeck = false
+            kavitaList = null
             BrowseSourcePager(source, query, filters)
         }
     }

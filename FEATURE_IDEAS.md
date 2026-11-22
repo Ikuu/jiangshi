@@ -14,6 +14,7 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 | [x] | **Suwayomi sync during library updates** (unreleased) | Unread counts in the library stay current without opening each series. Removes the 1.3.1 trade-off, where read status only syncs when a series is opened or refreshed | Small |
 | [x] | **Suwayomi sync separate from "Update tracking when marked as read"** (unreleased) | Manual marks reach Suwayomi without also updating other trackers, and default settings work properly | Small |
 | [x] | **Bookmark sync with Suwayomi** (unreleased) | Bookmarks match on both sides, using `isBookmarked` and the same approach as read status | Small |
+| [x] | **Kavita Want to Read** (unreleased) | A Want to Read button when browsing a Kavita source, and add or remove from the series page | Small to medium |
 | [x] | **Suwayomi server downloads** (unreleased) | Download chapters on the server or remove them from the series page, with each row saying whether the server has it | Medium |
 | [x] | **Check for new chapters on the server** | Already done by the Suwayomi extension: a refresh asks the server to fetch chapters from the source, while its "Fetch Data From Source" setting is on (the default) | Small to medium |
 | [x] | **Kavita On Deck** (unreleased) | An On Deck button when browsing a Kavita source, listing series partway through on the server | Small to medium |

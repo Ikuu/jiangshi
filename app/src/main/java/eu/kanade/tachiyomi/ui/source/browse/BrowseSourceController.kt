@@ -25,6 +25,7 @@ import co.touchlab.kermit.Logger
 import com.bluelinelabs.conductor.ControllerChangeHandler
 import com.bluelinelabs.conductor.ControllerChangeType
 import com.google.android.material.snackbar.Snackbar
+import androidx.appcompat.widget.TooltipCompat
 import eu.davidea.flexibleadapter.FlexibleAdapter
 import eu.davidea.flexibleadapter.items.IFlexible
 import eu.kanade.tachiyomi.R
@@ -206,32 +207,36 @@ open class BrowseSourceController(bundle: Bundle) :
             binding.btnGroupFilter.isVisible = presenter.sourceFilters.isNotEmpty()
             binding.btnGroupLatest.isVisible = presenter.source.supportsLatest
         }
-        binding.btnGroupOnDeck.isVisible = presenter.supportsOnDeck
+        binding.btnGroupOnDeck.isVisible = presenter.supportsKavitaLists
+        binding.btnGroupWantToRead.isVisible = presenter.supportsKavitaLists
         val isFiltered = { !presenter.filtersMatchDefault() || presenter.query.isNotBlank() }
         binding.btnGroupPopular.setOnClickListener {
-            if (presenter.useLatest || presenter.useOnDeck || isFiltered()) {
+            if (presenter.useLatest || presenter.kavitaList != null || isFiltered()) {
                 presenter.useLatest = false
-                presenter.useOnDeck = false
+                presenter.kavitaList = null
                 resetPager()
             }
             updatePopLatestIcons()
         }
         binding.btnGroupLatest.setOnClickListener {
-            if (!presenter.useLatest || presenter.useOnDeck || isFiltered()) {
+            if (!presenter.useLatest || presenter.kavitaList != null || isFiltered()) {
                 presenter.useLatest = true
-                presenter.useOnDeck = false
+                presenter.kavitaList = null
                 resetPager()
             }
             updatePopLatestIcons()
         }
-        binding.btnGroupOnDeck.setOnClickListener {
-            if (!presenter.useOnDeck || isFiltered()) {
-                presenter.useOnDeck = true
-                presenter.useLatest = false
-                resetPager()
+        mapOf(binding.btnGroupOnDeck to KavitaList.ON_DECK, binding.btnGroupWantToRead to KavitaList.WANT_TO_READ)
+            .forEach { (button, list) ->
+                button.setOnClickListener {
+                    if (presenter.kavitaList != list || isFiltered()) {
+                        presenter.kavitaList = list
+                        presenter.useLatest = false
+                        resetPager()
+                    }
+                    updatePopLatestIcons()
+                }
             }
-            updatePopLatestIcons()
-        }
         binding.btnGroupFilter.setOnClickListener {
             showFilters()
             binding.btnGroupFilter.isChecked = isFiltered()
@@ -797,7 +802,7 @@ open class BrowseSourceController(bundle: Bundle) :
 
     private fun updatePopLatestIcons() {
         val isNotFiltered = presenter.filtersMatchDefault() && presenter.query.isBlank()
-        val isPopular = !presenter.useLatest && !presenter.useOnDeck && isNotFiltered
+        val isPopular = !presenter.useLatest && presenter.kavitaList == null && isNotFiltered
         binding.btnGroupPopular.isChecked = isPopular
         binding.btnGroupPopular.setIconResource(
             if (isPopular) {
@@ -814,8 +819,32 @@ open class BrowseSourceController(bundle: Bundle) :
                 R.drawable.ic_new_releases_outline_24dp
             },
         )
-        binding.btnGroupOnDeck.isChecked = presenter.useOnDeck && isNotFiltered
+        binding.btnGroupOnDeck.isChecked = presenter.kavitaList == KavitaList.ON_DECK && isNotFiltered
+        binding.btnGroupWantToRead.isChecked = presenter.kavitaList == KavitaList.WANT_TO_READ && isNotFiltered
         binding.btnGroupFilter.isChecked = !isNotFiltered
+        compactBrowseButtons()
+    }
+
+    /**
+     * With Kavita's lists there are too many buttons to fit their names on a phone, so there only the one
+     * that's selected keeps its name, and the rest show their icon. Tablets have room for every name.
+     */
+    private fun compactBrowseButtons() {
+        val buttons = listOf(
+            binding.btnGroupPopular to MR.strings.popular,
+            binding.btnGroupLatest to MR.strings.latest,
+            binding.btnGroupOnDeck to MR.strings.on_deck,
+            binding.btnGroupWantToRead to MR.strings.want_to_read,
+            binding.btnGroupFilter to MR.strings.filter,
+        )
+        val compact = buttons.count { it.first.isVisible } > 4 &&
+            binding.root.resources.configuration.screenWidthDp < COMPACT_BUTTONS_BELOW_DP
+        buttons.forEach { (button, name) ->
+            val label = button.context.getString(name)
+            button.text = if (compact && !button.isChecked) null else label
+            button.contentDescription = label
+            TooltipCompat.setTooltipText(button, if (compact) label else null)
+        }
     }
 
     /**
@@ -903,21 +932,46 @@ open class BrowseSourceController(bundle: Bundle) :
     override fun onItemLongClick(position: Int) {
         val manga = (adapter?.getItem(position) as? BrowseSourceItem?)?.manga ?: return
         val activity = activity ?: return
-        if (!presenter.useOnDeck) {
+        val list = presenter.kavitaList
+        if (list == null) {
             addOrRemoveFromLibrary(manga, position)
             return
         }
-        // On Deck adds a way to take the series off it, alongside the usual library toggle
+        // Kavita's lists add a way to take the series off them, alongside the usual library toggle
         val options = arrayOf(
             activity.getString(if (manga.favorite) MR.strings.remove_from_library else MR.strings.add_to_library),
-            activity.getString(MR.strings.remove_from_on_deck),
+            activity.getString(
+                when (list) {
+                    KavitaList.ON_DECK -> MR.strings.remove_from_on_deck
+                    KavitaList.WANT_TO_READ -> MR.strings.remove_from_want_to_read
+                },
+            ),
         )
         activity.materialAlertDialog()
             .setTitle(manga.title)
             .setItems(options) { _, which ->
-                if (which == 0) addOrRemoveFromLibrary(manga, position) else removeFromOnDeck(manga, position)
+                when {
+                    which == 0 -> addOrRemoveFromLibrary(manga, position)
+                    list == KavitaList.ON_DECK -> removeFromOnDeck(manga, position)
+                    else -> removeFromWantToRead(manga, position)
+                }
             }
             .show()
+    }
+
+    private fun removeFromWantToRead(manga: Manga, position: Int) {
+        viewScope.launchIO {
+            try {
+                Injekt.get<TrackManager>().kavita.api.setWantToRead(manga.url, false)
+                withUIContext {
+                    adapter?.removeItem(position)
+                    view?.snack(MR.strings.removed_from_want_to_read)
+                }
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not remove ${manga.url} from Kavita's Want to Read" }
+                withUIContext { view?.snack(MR.strings.could_not_update_want_to_read) }
+            }
+        }
     }
 
     private fun removeFromOnDeck(manga: Manga, position: Int) {
@@ -963,6 +1017,9 @@ open class BrowseSourceController(bundle: Bundle) :
     }
 
     companion object {
+        /** Screens narrower than this, such as phones, show only the selected browse button's name. */
+        private const val COMPACT_BUTTONS_BELOW_DP = 600
+
         const val SOURCE_ID_KEY = "sourceId"
 
         const val SEARCH_QUERY_KEY = "searchQuery"

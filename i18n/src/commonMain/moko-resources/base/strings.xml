@@ -1100,6 +1100,11 @@
     <string name="remove_from_on_deck">Remove from On Deck</string>
     <string name="removed_from_on_deck">Removed from On Deck</string>
     <string name="could_not_remove_from_on_deck">Couldn\'t remove it from On Deck</string>
+    <string name="add_to_want_to_read">Add to Want to Read</string>
+    <string name="remove_from_want_to_read">Remove from Want to Read</string>
+    <string name="added_to_want_to_read">Added to Want to Read</string>
+    <string name="removed_from_want_to_read">Removed from Want to Read</string>
+    <string name="could_not_update_want_to_read">Couldn\'t update Want to Read</string>
 
     <!-- Updates waiting to reach a tracker or server -->
     <string name="pending_updates">Waiting to send</string>

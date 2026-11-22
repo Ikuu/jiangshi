@@ -79,6 +79,15 @@
                 android:layout_height="wrap_content" />
             <com.google.android.material.button.MaterialButton
                 style="?attr/materialButtonStyle"
+                android:id="@+id/btn_group_want_to_read"
+                android:text="@string/want_to_read"
+                android:checkable="true"
+                app:icon="@drawable/ic_bookmark_border_24dp"
+                android:visibility="gone"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+            <com.google.android.material.button.MaterialButton
+                style="?attr/materialButtonStyle"
                 android:id="@+id/btn_group_filter"
                 android:text="@string/filter"
                 android:checkable="true"

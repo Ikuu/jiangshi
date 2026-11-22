@@ -248,6 +248,29 @@ class MangaDetailsPresenter(
         )
     }
 
+    /** Whether a Kavita series is on the server's Want to Read list, or null if that isn't known. */
+    var isInWantToRead: Boolean? = null
+        private set
+
+    /** Adds a Kavita series to Want to Read on the server, or takes it off. */
+    fun toggleWantToRead() {
+        val wanted = !(isInWantToRead ?: return)
+        presenterScope.launchIO {
+            val message = try {
+                Injekt.get<TrackManager>().kavita.api.setWantToRead(manga.url, wanted)
+                isInWantToRead = wanted
+                if (wanted) MR.strings.added_to_want_to_read else MR.strings.removed_from_want_to_read
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not update Kavita's Want to Read for ${manga.url}" }
+                MR.strings.could_not_update_want_to_read
+            }
+            withUIContext {
+                view?.view?.snack(message)
+                view?.updateChapters()
+            }
+        }
+    }
+
     /** Library type and chapter volumes from the Kavita server, when the source is Kavita */
     var kavitaLayout: KavitaSeriesLayout? = null
         private set
@@ -343,6 +366,12 @@ class MangaDetailsPresenter(
             return
         }
         kavitaLayout = layout
+        isInWantToRead = try {
+            kavita.api.isInWantToRead(manga.url)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not check Kavita's Want to Read for ${manga.url}" }
+            null
+        }
         layout.libraryType?.let { KavitaLibraryTypes.putAll(mapOf(manga.url to it)) }
         applyKavitaProgress()
         withUIContext { view?.updateChapters() }

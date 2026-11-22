@@ -254,9 +254,24 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
      * EPUB series are left out, as the extension can't open them, so a page can come back empty while
      * later ones still have series.
      */
-    suspend fun getOnDeck(apiUrl: String, apiKey: String, page: Int): MangasPage = withIOContext {
+    suspend fun getOnDeck(apiUrl: String, apiKey: String, page: Int): MangasPage =
+        getSeriesPage(apiUrl, apiKey, page) { api -> "$api/Series/on-deck?libraryId=0" to "{}" }
+
+    /** A page of the series on the user's Want to Read list, listed like [getOnDeck]. */
+    suspend fun getWantToRead(apiUrl: String, apiKey: String, page: Int): MangasPage =
+        getSeriesPage(apiUrl, apiKey, page) { api -> "$api/want-to-read/v2?" to WANT_TO_READ_FILTER }
+
+    /** Fetches a page from a list of series, given the list's URL without its paging and the body to send. */
+    private suspend fun getSeriesPage(
+        apiUrl: String,
+        apiKey: String,
+        page: Int,
+        list: (api: String) -> Pair<String, String>,
+    ): MangasPage = withIOContext {
         val api = getApiFromUrl("${apiUrl.trimEnd('/')}/")
-        val request = POST("$api/Series/on-deck?libraryId=0&PageNumber=$page&PageSize=$ON_DECK_PAGE_SIZE", body = jsonBody("{}"))
+        val (listUrl, body) = list(api)
+        val separator = if (listUrl.endsWith("?")) "" else "&"
+        val request = POST("$listUrl${separator}PageNumber=$page&PageSize=$SERIES_PAGE_SIZE", body = jsonBody(body))
         authClient.newCall(request).awaitSuccess().use { response ->
             val totalPages = response.header("Pagination")
                 ?.let { runCatching { json.decodeFromString<PaginationDto>(it).totalPages }.getOrNull() }
@@ -268,8 +283,22 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
                     if (apiKey.isNotBlank()) thumbnail_url = "$api/image/series-cover?seriesId=${dto.id}&apiKey=$apiKey"
                 }
             }
-            MangasPage(mangas, totalPages?.let { page < it } ?: (series.size == ON_DECK_PAGE_SIZE))
+            MangasPage(mangas, totalPages?.let { page < it } ?: (series.size == SERIES_PAGE_SIZE))
         }
+    }
+
+    /** Whether the series is on the user's Want to Read list. */
+    suspend fun isInWantToRead(seriesUrl: String): Boolean = withIOContext {
+        val requestUrl = "${getApiFromUrl(seriesUrl)}/want-to-read?seriesId=${getIdFromUrl(seriesUrl)}"
+        authClient.newCall(GET(requestUrl)).awaitSuccess().use { it.body.string().trim() == "true" }
+    }
+
+    /** Adds the series to the user's Want to Read list, or takes it off. */
+    suspend fun setWantToRead(seriesUrl: String, wanted: Boolean) = withIOContext {
+        val action = if (wanted) "add-series" else "remove-series"
+        val requestUrl = "${getApiFromUrl(seriesUrl)}/want-to-read/$action"
+        val body = """{"seriesIds":[${getIdFromUrl(seriesUrl)}]}"""
+        authClient.newCall(POST(requestUrl, body = jsonBody(body))).awaitSuccess().close()
     }
 
     /** Takes a series off On Deck until it's next read */
@@ -285,7 +314,10 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         fun chapterId(chapterUrl: String): Int? =
             chapterUrl.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
 
-        private const val ON_DECK_PAGE_SIZE = 30
+        private const val SERIES_PAGE_SIZE = 30
+
+        /** Every series on the list, in its own order. 1 is Kavita's FilterCombination.And. */
+        private const val WANT_TO_READ_FILTER = """{"statements":[],"combination":1,"limitTo":0}"""
 
         /** Kavita's MangaFormat for EPUB */
         private const val EPUB_FORMAT = 3

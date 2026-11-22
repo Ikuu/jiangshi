@@ -7,6 +7,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 ### Additions
 - Bookmarks on Suwayomi series stay in step with the server, in both directions, like read status. The first time a series syncs, chapters bookmarked on either side end up bookmarked on both. Bookmarks that can't be sent, such as while offline, are kept, sent on the next sync and listed in Waiting to send
 - Suwayomi series can download chapters on the server. Long-press a chapter or volume to download it on the server or remove it, or use Server downloads in the series menu for all unread chapters or to remove read ones. Chapter rows say when a chapter is on the server, queued there or downloading, and follow the server's progress
+- Browsing a Kavita source has a Want to Read button next to On Deck, listing the series on your Want to Read list on the server. Long-press a series there to take it off. Kavita series pages can add a series to Want to Read or remove it from their menu. On phones, the browse buttons other than the selected one show only their icon, so they all fit
 
 ### Changes
 - Suwayomi tracking and sync read the per-user fields on servers with user accounts, which replace older fields Suwayomi has deprecated, and still work with servers from before user accounts

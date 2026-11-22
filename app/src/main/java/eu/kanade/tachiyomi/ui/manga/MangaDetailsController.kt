@@ -1290,6 +1290,11 @@ class MangaDetailsController :
         menu.findItem(R.id.action_migrate)?.isVisible = !presenter.isLockedFromSearch &&
             !presenter.manga.isLocal() && presenter.manga.favorite
         menu.findItem(R.id.action_server_downloads)?.isVisible = !presenter.isLockedFromSearch && presenter.isSuwayomiSource
+        menu.findItem(R.id.action_want_to_read)?.apply {
+            val wanted = presenter.isInWantToRead
+            isVisible = wanted != null && !presenter.isLockedFromSearch
+            title = view?.context?.getString(if (wanted == true) MR.strings.remove_from_want_to_read else MR.strings.add_to_want_to_read)
+        }
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1333,6 +1338,7 @@ class MangaDetailsController :
             R.id.download_next, R.id.download_next_5, R.id.download_custom, R.id.download_unread, R.id.download_all -> downloadChapters(
                 item.itemId,
             )
+            R.id.action_want_to_read -> presenter.toggleWantToRead()
             R.id.server_download_unread -> presenter.downloadOnServer(presenter.chapters.filter { !it.read })
             R.id.server_remove_read -> presenter.removeFromServer(presenter.allChapters.filter { it.read })
             else -> return super.onOptionsItemSelected(item)

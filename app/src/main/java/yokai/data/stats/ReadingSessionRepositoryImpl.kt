@@ -23,6 +23,10 @@ class ReadingSessionRepositoryImpl(private val handler: DatabaseHandler) : Readi
     override suspend fun getByManga(mangaSource: Long, mangaUrl: String): List<ReadingSession> =
         handler.awaitList { reading_sessionsQueries.getByManga(mangaSource, mangaUrl, ReadingSession::mapper) }
 
+    override suspend fun delete(id: Long) {
+        handler.await { reading_sessionsQueries.deleteById(id) }
+    }
+
     override suspend fun deleteAll() {
         handler.await { reading_sessionsQueries.deleteAll() }
     }

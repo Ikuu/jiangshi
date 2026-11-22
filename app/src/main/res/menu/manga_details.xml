@@ -89,6 +89,11 @@
         </menu>
     </item>
     <item
+        android:id="@+id/action_linked_series"
+        android:title="@string/linked_series"
+        android:visible="false"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/action_edit"
         android:icon="@drawable/ic_edit_24dp"
         android:title="@string/edit"

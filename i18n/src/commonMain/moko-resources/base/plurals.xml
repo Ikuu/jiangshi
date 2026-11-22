@@ -158,6 +158,21 @@
         <item quantity="other">Read today to keep your %d day streak going</item>
     </plurals>
 
+    <plurals name="linked_series_marked">
+        <item quantity="one">Linked with %1$s, and %2$d chapter marked read</item>
+        <item quantity="other">Linked with %1$s, and %2$d chapters marked read</item>
+    </plurals>
+
+    <plurals name="weekly_recap_chapters">
+        <item quantity="one">%d chapter finished</item>
+        <item quantity="other">%d chapters finished</item>
+    </plurals>
+
+    <plurals name="weekly_recap_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+
     <plurals name="streak_reminder_title">
         <item quantity="one">%1$s Your %2$d day streak ends tonight</item>
         <item quantity="other">%1$s Your %2$d day streak ends tonight</item>

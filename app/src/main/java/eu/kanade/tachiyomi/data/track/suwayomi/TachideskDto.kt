@@ -125,3 +125,9 @@ data class ServerTrackerInfo(
     val isBehind: Boolean,
     val isSignedOut: Boolean,
 )
+
+@Serializable
+data class AboutServerData(val aboutServer: AboutServer)
+
+@Serializable
+data class AboutServer(val version: String)

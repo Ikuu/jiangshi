@@ -6,5 +6,6 @@ interface ReadingSessionRepository {
     suspend fun getAll(): List<ReadingSession>
     suspend fun getBetween(start: Long, end: Long): List<ReadingSession>
     suspend fun getByManga(mangaSource: Long, mangaUrl: String): List<ReadingSession>
+    suspend fun delete(id: Long)
     suspend fun deleteAll()
 }

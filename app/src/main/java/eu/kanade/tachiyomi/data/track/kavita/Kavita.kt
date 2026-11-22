@@ -192,16 +192,37 @@ class Kavita(private val context: Context, id: Long) : TrackService(id), Enhance
     override fun isTrackFrom(track: Track, manga: Manga, source: Source?): Boolean =
         track.tracking_url == manga.url && source?.let { accept(it) } == true
 
+    /** The ID of the extension's [instance]th Kavita source, from 1 to 3. */
+    private fun sourceId(instance: Int): Long {
+        val key = "kavita_$instance/all/1" // Hardcoded versionID to 1
+        val bytes = MessageDigest.getInstance("MD5").digest(key.toByteArray())
+        return (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }
+            .reduce(Long::or) and Long.MAX_VALUE
+    }
+
+    /** A Kavita source from the extension, with the server it's set up for, if any. */
+    data class Server(val name: String, val apiUrl: String, val apiKey: String) {
+        val isSetUp get() = apiUrl.isNotEmpty() && apiKey.isNotEmpty()
+    }
+
+    /**
+     * The extension's Kavita sources that are set up with a server. If none are, the first source is
+     * listed anyway, so it can say it isn't set up. Empty without the extension.
+     */
+    fun servers(): List<Server> {
+        val sources = (1..3).mapNotNull { instance -> sourceManager.get(sourceId(instance)) as? ConfigurableSource }
+        val servers = sources.map { source ->
+            val preferences = source.sourcePreferences()
+            Server(source.name, preferences.getString("APIURL", "").orEmpty(), preferences.getString("APIKEY", "").orEmpty())
+        }
+        return servers.filter { it.isSetUp }.ifEmpty { servers.take(1) }
+    }
+
     fun loadOAuth() {
         val oauth = OAuth()
         for (id in 1..3) {
             val authentication = oauth.authentications[id - 1]
-            val sourceId by lazy {
-                val key = "kavita_$id/all/1" // Hardcoded versionID to 1
-                val bytes = MessageDigest.getInstance("MD5").digest(key.toByteArray())
-                (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }
-                    .reduce(Long::or) and Long.MAX_VALUE
-            }
+            val sourceId by lazy { sourceId(id) }
             val preferences = (sourceManager.get(sourceId) as ConfigurableSource).sourcePreferences()
 
             val prefApiUrl = preferences.getString("APIURL", "")

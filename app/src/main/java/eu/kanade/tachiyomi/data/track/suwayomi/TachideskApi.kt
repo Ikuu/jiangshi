@@ -1,6 +1,8 @@
 package eu.kanade.tachiyomi.data.track.suwayomi
 
+import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.ServerStatus
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.POST
@@ -10,6 +12,7 @@ import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.withIOContext
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -197,6 +200,23 @@ class TachideskApi {
         downloaded.size + waiting.size
     }
 
+    /**
+     * Checks the Suwayomi server the extension is set up for: whether it answers, whether it takes the
+     * extension's sign-in, and which version it runs.
+     */
+    suspend fun checkServer(): ServerStatus = withIOContext {
+        try {
+            val baseUrl = source.baseUrl.trimEnd('/')
+            if (baseUrl.isBlank() || !baseUrl.startsWith("http")) return@withIOContext ServerStatus.Problem(ServerStatus.Reason.NOT_SET_UP)
+            val about = graphqlAt<AboutServerData>(baseUrl, ABOUT_SERVER_QUERY, buildJsonObject { }).aboutServer
+            ServerStatus.Connected(about.version.takeIf { it.isNotBlank() }, username = null)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Logger.w(e) { "Suwayomi server check failed" }
+            ServerStatus.of(e)
+        }
+    }
+
     private suspend fun mangaChapters(url: String): List<ChapterNode> =
         graphqlPerUser<MangaChaptersData>(url, ::mangaChaptersQuery, mangaIdVariables(url)).manga.chapters.nodes
 
@@ -239,12 +259,16 @@ class TachideskApi {
     }
 
     /** Tracking URLs keep their REST form, so links made by earlier versions still work. */
-    private suspend inline fun <reified T> graphql(mangaUrl: String, query: String, variables: JsonObject): T {
+    private suspend inline fun <reified T> graphql(mangaUrl: String, query: String, variables: JsonObject): T =
+        graphqlAt(mangaUrl.substringBefore("/api/v1/manga/"), query, variables)
+
+    /** Runs a query on the server at [baseUrl], signed in as the extension is. */
+    private suspend inline fun <reified T> graphqlAt(baseUrl: String, query: String, variables: JsonObject): T {
         val body = buildJsonObject {
             put("query", query)
             put("variables", variables)
         }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
-        val endpoint = "${mangaUrl.substringBefore("/api/v1/manga/")}/api/graphql"
+        val endpoint = "$baseUrl/api/graphql"
         val extension = source
         val response = extension.client.newCall(POST(endpoint, extension.headers, body)).awaitSuccess().parseAs<JsonObject>()
 
@@ -308,6 +332,14 @@ class TachideskApi {
                 }
             """
         }
+
+        // The chapter count needs signing in on servers that ask for it, so this also checks the sign-in
+        private const val ABOUT_SERVER_QUERY = """
+            query AboutServer {
+                aboutServer { version }
+                chapters(first: 1) { totalCount }
+            }
+        """
 
         private const val DOWNLOAD_QUEUE_QUERY = """
             query DownloadQueue {

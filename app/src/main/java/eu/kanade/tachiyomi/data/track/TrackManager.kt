@@ -12,6 +12,8 @@ import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.SourceManager
+import uy.kohesive.injekt.injectLazy
 
 class TrackManager(context: Context) {
 
@@ -39,12 +41,21 @@ class TrackManager(context: Context) {
 
     val services = listOf(myAnimeList, aniList, kitsu, shikimori, bangumi, komga, mangaUpdates, kavita, suwayomi)
 
+    internal val sourceManager: SourceManager by injectLazy()
+
+    /** Series linked across Kavita and Suwayomi, so reading one marks the other. */
+    val linkedSeries = LinkedSeries(this)
+
     fun getService(id: Long) = services.find { it.id == id }
 
-    /** Sends chapters marked read or unread in the app to the Suwayomi or Kavita server they came from. */
+    /**
+     * Sends chapters marked read or unread in the app to the Suwayomi or Kavita server they came from, and
+     * marks them the same in a linked series on the other server.
+     */
     suspend fun updateServerChaptersRead(manga: Manga, chapters: List<Chapter>, read: Boolean) {
         suwayomi.updateChaptersRead(manga, chapters.map { it.chapter_number }, read)
         kavita.updateChaptersRead(manga, chapters, read)
+        linkedSeries.markLinked(manga, chapters, read)
     }
 
     /** Sends chapters bookmarked or unbookmarked in the app to the Suwayomi server they came from. */

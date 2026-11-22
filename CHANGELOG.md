@@ -4,6 +4,16 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Additions
+- Finishing a chapter from Suwayomi can have the server download the next unread ones, so they're ready there before you get to them. Choose how many in Settings → Downloads, under Download ahead. Off by default
+- Tap a day in the Statistics reading calendar, then Sessions, to see each reading session that day, with when it started, how long it lasted and what was read. Delete one that's wrong, such as from a reader left open, and the stats are worked out again without it
+- Settings → Tracking has a Server status section that checks each Kavita and Suwayomi server set up in their extensions. It says whether the server answered, which version it runs and, for Kavita, who you're signed in as. When something's wrong it says what in plain words, such as an address that can't be found, a server that didn't answer, or an API key or sign-in it didn't accept, and what to check. Tap a server to check it again
+- A series in your library from both Kavita and Suwayomi can be linked from Linked series in the series menu, such as volumes on one and newer chapters on the other. Chapters marked read or unread in either are marked the same in the other, matched by chapter number, and sent on to its server, including chapters finished in the reader and ones found read on the server when the series opens. Linking brings the two into step, marking chapters read in either read in both. Whole volumes and specials are left out, as their numbers aren't chapter numbers
+- An optional weekly recap, in Settings → General, sends a notification on the last evening of the week with the time read, chapters finished and days read, compared with the week before. Weeks start on the same day as on Statistics. Tapping it opens Statistics
+
+### Changes
+- The streak reminder setting is now under Reading reminders in Settings → General, with the weekly recap
+
 ## [1.7.0] - 2026-11-22
 
 ### Additions

@@ -698,6 +698,12 @@ class ReaderViewModel(
             val newlyFinished = finished && readerChapter.chapter.id?.let(serverFinishedChapterIds::add) == true
             scheduleSuwayomiPageSync(readerChapter.chapter, newlyFinished)
             scheduleKavitaSync(readerChapter.chapter, page.index, newlyFinished)
+            if (newlyFinished && !preferences.incognitoMode().get()) {
+                val manga = manga
+                if (manga != null) {
+                    launchIO { Injekt.get<TrackManager>().linkedSeries.markLinked(manga, listOf(readerChapter.chapter), true) }
+                }
+            }
         }
     }
 
@@ -733,7 +739,8 @@ class ReaderViewModel(
     /**
      * Sends a finished chapter to Suwayomi straight away, or the page reached once page turns settle, so reading
      * doesn't send a request for every page. Suwayomi is where the chapters come from, so this doesn't depend on
-     * the tracking settings. Setting the page doesn't change whether a chapter's read there.
+     * the tracking settings. Setting the page doesn't change whether a chapter's read there. Finishing a chapter
+     * also has the server download the next ones, if that's on.
      */
     private fun scheduleSuwayomiPageSync(chapter: Chapter, finished: Boolean) {
         val manga = manga ?: return
@@ -746,6 +753,7 @@ class ReaderViewModel(
             suwayomiPageSync?.cancel()
             launchIO {
                 suwayomi.updateChaptersRead(manga, listOf(chapterNumber), true, preferences.autoUpdateTrack().get())
+                suwayomi.downloadAheadOnServer(manga, chapterNumber)
             }
             return
         }

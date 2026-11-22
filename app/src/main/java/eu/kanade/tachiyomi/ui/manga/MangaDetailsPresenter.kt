@@ -109,6 +109,8 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetAvailableScanlators
 import yokai.domain.chapter.interactor.GetChapter
+import yokai.domain.manga.interactor.GetLibraryManga
+import yokai.util.normalizedLevenshteinSimilarity
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.stats.ReadingCategory
@@ -286,6 +288,58 @@ class MangaDetailsPresenter(
         }
     }
 
+    /** Whether this series can be linked with the same series on the other of Kavita and Suwayomi. */
+    val canLinkSeries: Boolean
+        get() = manga.favorite && Injekt.get<TrackManager>().linkedSeries.canLink(manga)
+
+    /** The name of the server a linked series would come from: Suwayomi for a Kavita series, and the other way round. */
+    fun otherServerName(context: Context): String {
+        val trackManager = Injekt.get<TrackManager>()
+        val other = if (trackManager.kavita.accept(source)) trackManager.suwayomi else trackManager.kavita
+        return context.getString(other.nameRes())
+    }
+
+    /** The series this one is linked with on the other server, if any. */
+    suspend fun linkedSeries(): Manga? =
+        Injekt.get<TrackManager>().linkedSeries.linkedTo(manga.id!!)?.let { getManga.awaitById(it) }
+
+    /** Series in the library from the other server, closest titles first, that this one could be linked with. */
+    suspend fun linkCandidates(): List<Manga> {
+        val linkedSeries = Injekt.get<TrackManager>().linkedSeries
+        val title = manga.title.lowercase()
+        return Injekt.get<GetLibraryManga>().await()
+            .map { it.manga }
+            .distinctBy { it.id }
+            .filter { linkedSeries.canLinkTogether(manga, it) }
+            .sortedByDescending { normalizedLevenshteinSimilarity(it.title.lowercase(), title) }
+    }
+
+    /** Links this series with [other], bringing the chapters read in either into both. */
+    fun linkSeries(other: Manga) {
+        presenterScope.launchIO {
+            val marked = Injekt.get<TrackManager>().linkedSeries.link(manga, other)
+            getChapters()
+            withUIContext {
+                view?.updateChapters()
+                val context = view?.view?.context ?: return@withUIContext
+                view?.view?.snack(
+                    if (marked > 0) {
+                        context.getString(MR.plurals.linked_series_marked, marked, other.title, marked)
+                    } else {
+                        context.getString(MR.strings.linked_series_done, other.title)
+                    },
+                )
+            }
+        }
+    }
+
+    fun unlinkSeries() {
+        presenterScope.launchIO {
+            Injekt.get<TrackManager>().linkedSeries.unlink(manga.id!!)
+            withUIContext { view?.view?.snack(MR.strings.linked_series_removed) }
+        }
+    }
+
     /** Library type and chapter volumes from the Kavita server, when the source is Kavita */
     var kavitaLayout: KavitaSeriesLayout? = null
         private set
@@ -416,7 +470,15 @@ class MangaDetailsPresenter(
         }
         if (updates.isEmpty()) return
         updateChapter.awaitAll(updates)
+        val updated = updates.map { it.id }.toSet()
+        markLinkedRead(allChapters.filter { it.read && it.id in updated }.map { it.chapter })
         getChapters()
+    }
+
+    /** Chapters found read on the server go on to the series linked with this one, if any. */
+    private suspend fun markLinkedRead(chapters: List<Chapter>) {
+        if (chapters.isEmpty()) return
+        Injekt.get<TrackManager>().linkedSeries.markLinked(manga, chapters, true)
     }
 
     /** Trackers linked on the Suwayomi server, for the tracking sheet. */
@@ -433,7 +495,9 @@ class MangaDetailsPresenter(
     private suspend fun fetchSuwayomiProgress() {
         val suwayomi = Injekt.get<TrackManager>().suwayomi
         if (!suwayomi.accept(source)) return
+        val readBefore = allChapters.filter { it.read }.map { it.id }.toSet()
         if (!suwayomi.syncChapterProgress(manga, allChapters, tracks)) return
+        markLinkedRead(allChapters.filter { it.read && it.id !in readBefore }.map { it.chapter })
         getChapters()
         withUIContext { view?.updateChapters() }
     }

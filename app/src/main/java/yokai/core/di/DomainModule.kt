@@ -33,6 +33,7 @@ import yokai.domain.extension.repo.interactor.ReplaceExtensionRepo
 import yokai.domain.extension.repo.interactor.UpdateExtensionRepo
 import yokai.domain.history.HistoryRepository
 import yokai.domain.stats.ReadingSessionRepository
+import yokai.domain.stats.interactor.DeleteReadingSession
 import yokai.domain.stats.interactor.GetReadingSessions
 import yokai.domain.stats.interactor.InsertReadingSession
 import yokai.domain.history.interactor.GetHistory
@@ -112,6 +113,7 @@ fun domainModule() = module {
     single<ReadingSessionRepository> { ReadingSessionRepositoryImpl(get()) }
     factory { GetReadingSessions(get()) }
     factory { InsertReadingSession(get()) }
+    factory { DeleteReadingSession(get()) }
 
     single<TrackRepository> { TrackRepositoryImpl(get()) }
     factory { DeleteTrack(get()) }

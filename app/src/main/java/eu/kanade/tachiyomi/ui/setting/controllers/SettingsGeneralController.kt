@@ -39,6 +39,8 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import eu.kanade.tachiyomi.data.preference.changesIn
 import eu.kanade.tachiyomi.data.stats.StreakReminderJob
+import eu.kanade.tachiyomi.data.stats.WeeklyRecapJob
+import java.time.format.TextStyle
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
 class SettingsGeneralController : SettingsLegacyController() {
@@ -110,7 +112,7 @@ class SettingsGeneralController : SettingsLegacyController() {
         }
 
         preferenceCategory {
-            titleRes = MR.strings.reading_reminder
+            titleRes = MR.strings.reading_reminders
 
             switchPreference {
                 bindTo(preferences.streakReminder())
@@ -131,6 +133,15 @@ class SettingsGeneralController : SettingsLegacyController() {
             // Either change moves or cancels the scheduled reminder
             preferences.streakReminder().changesIn(viewScope) { StreakReminderJob.setupTask(context) }
             preferences.streakReminderHour().changesIn(viewScope) { StreakReminderJob.setupTask(context) }
+
+            switchPreference {
+                bindTo(preferences.weeklyRecap())
+                titleRes = MR.strings.weekly_recap
+                val day = WeeklyRecapJob.recapDay().getDisplayName(TextStyle.FULL, Locale.getDefault())
+                val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(LocalTime.of(WeeklyRecapJob.HOUR, 0))
+                summary = context.getString(MR.strings.weekly_recap_summary, day, time)
+            }
+            preferences.weeklyRecap().changesIn(viewScope) { WeeklyRecapJob.setupTask(context) }
         }
 
         preferenceCategory {

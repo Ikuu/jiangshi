@@ -186,6 +186,9 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     /** The hour of the day, 0 to 23, to send the streak reminder */
     fun streakReminderHour() = preferenceStore.getInt("streak_reminder_hour", 20)
 
+    /** Whether to send the week's reading in a notification on the last evening of the week */
+    fun weeklyRecap() = preferenceStore.getBoolean("weekly_recap", false)
+
     /** The reading goal on the Statistics page, as ReadingGoal.encode() gives it, or empty for none */
     fun readingGoal() = preferenceStore.getString("reading_goal", "")
 
@@ -194,6 +197,12 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
 
     /** Series whose bookmarks in the app have been sent to Suwayomi once, so the server can decide what's bookmarked */
     fun suwayomiBookmarkSyncedSeries() = preferenceStore.getStringSet("suwayomi_bookmark_synced_series", emptySet())
+
+    /** How many unread chapters after one just finished to have the Suwayomi server download, or 0 for none */
+    fun suwayomiDownloadAhead() = preferenceStore.getInt("suwayomi_download_ahead", 0)
+
+    /** Series that are the same on Kavita and Suwayomi, as "mangaId:mangaId", so reading one marks the other */
+    fun linkedSeries() = preferenceStore.getStringSet("linked_series", emptySet())
 
     // TODO: SourcePref
     fun lastUsedCatalogueSource() = preferenceStore.getLong(Keys.lastUsedCatalogueSource, -1)

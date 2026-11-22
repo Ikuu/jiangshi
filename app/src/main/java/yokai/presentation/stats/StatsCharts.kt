@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.TextButton
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -163,6 +165,8 @@ fun ReadingCalendar(
     formatValue: (Long) -> String,
     summary: String,
     modifier: Modifier = Modifier,
+    /** Opens the sessions for a day tapped in the calendar, if given. */
+    onOpenDay: ((LocalDate) -> Unit)? = null,
 ) {
     var selected by remember(readingDays) { mutableStateOf<LocalDate?>(null) }
     val empty = MaterialTheme.colorScheme.surfaceVariant
@@ -174,8 +178,20 @@ fun ReadingCalendar(
 
     Column(modifier) {
         val readout = selected?.let { "${formatDate(it)} · ${formatValue(readingDays[it] ?: 0L)}" } ?: summary
-        Text(readout, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(8.dp))
+        Row(Modifier.heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                readout,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            val day = selected
+            if (day != null && onOpenDay != null && (readingDays[day] ?: 0L) > 0L) {
+                TextButton(onClick = { onOpenDay(day) }) { Text(stringResource(MR.strings.stats_day_sessions)) }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
 
         BoxWithConstraints(Modifier.fillMaxWidth()) {
         val weeks = ((maxWidth + gap) / (cell + gap)).toInt().coerceAtLeast(1)

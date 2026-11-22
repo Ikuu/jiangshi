@@ -22,6 +22,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.items
+import java.time.Instant
+import yokai.domain.stats.ReadingSession
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -120,6 +126,9 @@ class StatsScreen : Screen() {
                     onPeriodChange = screenModel::setPeriod,
                     onGoalChange = screenModel::setGoal,
                     onOpenYear = { navigator.push(YearInReviewScreen(it)) },
+                    sessionsOn = screenModel::sessionsOn,
+                    chapterName = screenModel::chapterName,
+                    onDeleteSession = screenModel::deleteSession,
                 )
             }
         }
@@ -134,10 +143,25 @@ private fun StatsContent(
     onPeriodChange: (StatsPeriod) -> Unit,
     onGoalChange: (ReadingGoal?) -> Unit,
     onOpenYear: (Int) -> Unit,
+    sessionsOn: (LocalDate) -> List<ReadingSession>,
+    chapterName: (ReadingSession) -> String?,
+    onDeleteSession: (ReadingSession) -> Unit,
 ) {
     val context = LocalContext.current
     val router = LocalRouter.current
     var editingGoal by remember { mutableStateOf(false) }
+    var openDay by remember { mutableStateOf<LocalDate?>(null) }
+    openDay?.let { day ->
+        // Worked out again with each new state, so a deleted session leaves the list
+        val daySessions = remember(state, day) { sessionsOn(day) }
+        DaySessionsDialog(
+            date = day,
+            sessions = daySessions,
+            chapterName = chapterName,
+            onDelete = onDeleteSession,
+            onDismiss = { openDay = null },
+        )
+    }
     if (editingGoal) {
         GoalDialog(
             current = state.goal?.goal,
@@ -187,7 +211,7 @@ private fun StatsContent(
                 if (stats.isEmpty) {
                     item(key = "period_empty") { Message(stringResource(MR.strings.stats_period_empty), null) }
                 } else {
-                    timeSection(stats, time, context)
+                    timeSection(stats, time, context, onOpenDay = { openDay = it })
                     seriesSection(state, time, openManga)
                     typesSection(state, time)
                 }
@@ -322,6 +346,81 @@ private fun GoalDialog(current: ReadingGoal?, onDismiss: () -> Unit, onSave: (Re
     )
 }
 
+/** A day's reading sessions, each of which can be deleted, such as one from a reader left open. */
+@Composable
+private fun DaySessionsDialog(
+    date: LocalDate,
+    sessions: List<ReadingSession>,
+    chapterName: (ReadingSession) -> String?,
+    onDelete: (ReadingSession) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val zone = remember { ZoneId.systemDefault() }
+    val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(Locale.getDefault()) }
+    val timeFormat = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()) }
+    var deleting by remember { mutableStateOf<ReadingSession?>(null) }
+    val chapterNumberFormat = remember { java.text.DecimalFormat("#.###") }
+
+    deleting?.let { session ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(stringResource(MR.strings.stats_delete_session_title)) },
+            text = {
+                Text(stringResource(MR.strings.stats_delete_session_body, context.formatReadTime(session.duration), session.mangaTitle))
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete(session)
+                        deleting = null
+                    },
+                ) { Text(stringResource(MR.strings.delete)) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(MR.strings.cancel)) } },
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(dateFormat.format(date)) },
+        text = {
+            if (sessions.isEmpty()) {
+                Text(stringResource(MR.strings.stats_day_no_sessions))
+            } else {
+                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    items(sessions, key = { it.id ?: it.startedAt }) { session ->
+                        val started = Instant.ofEpochMilli(session.startedAt).atZone(zone)
+                        // The number is only a fallback for series no longer in the app, as volumes don't always have a real one
+                        val chapter = chapterName(session) ?: session.chapterNumber.takeIf { it > 0 }?.let { number ->
+                            stringResource(MR.strings.chapter_, chapterNumberFormat.format(number))
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+                                Text(
+                                    stringResource(MR.strings.stats_session_when, timeFormat.format(started), context.formatReadTime(session.duration)),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                )
+                                Text(
+                                    listOfNotNull(session.mangaTitle, chapter).joinToString(" · "),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            IconButton(onClick = { deleting = session }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = stringResource(MR.strings.stats_delete_session))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.close)) } },
+    )
+}
+
 @Composable
 private fun <T> ChoiceRow(options: List<Pair<T, dev.icerock.moko.resources.StringResource>>, selected: T, onSelect: (T) -> Unit) {
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -422,7 +521,12 @@ internal fun TileRow(first: Pair<String, String>, second: Pair<String, String>) 
     }
 }
 
-private fun LazyListScope.timeSection(stats: ReadingStats, time: (Long) -> String, context: Context) {
+private fun LazyListScope.timeSection(
+    stats: ReadingStats,
+    time: (Long) -> String,
+    context: Context,
+    onOpenDay: (LocalDate) -> Unit,
+) {
     item(key = "time_header") { SectionHeader(stringResource(MR.strings.stats_section_time)) }
 
     item(key = "timeline") {
@@ -480,6 +584,7 @@ private fun LazyListScope.timeSection(stats: ReadingStats, time: (Long) -> Strin
                 formatValue = time,
                 summary = stringResource(MR.strings.stats_current_streak) + " · " +
                     context.getString(MR.plurals.stats_days, stats.currentStreak, stats.currentStreak),
+                onOpenDay = onOpenDay,
             )
         }
     }

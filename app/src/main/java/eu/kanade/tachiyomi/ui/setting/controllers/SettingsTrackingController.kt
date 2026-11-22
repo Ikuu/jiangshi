@@ -13,7 +13,9 @@ import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
 import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.util.system.withUIContext
 import yokai.domain.manga.interactor.GetManga
+import androidx.preference.Preference
 import androidx.preference.PreferenceGroup
+import eu.kanade.tachiyomi.data.track.ServerStatus
 import androidx.preference.PreferenceScreen
 import eu.kanade.tachiyomi.R
 import yokai.i18n.MR
@@ -152,6 +154,93 @@ class SettingsTrackingController :
                 }
             enhancedTrackers.forEach { trackPreference(it) }
             infoPreference(MR.strings.enhanced_tracking_info)
+        }
+        val servers = serversToCheck()
+        if (servers.isNotEmpty()) {
+            preferenceCategory {
+                titleRes = MR.strings.server_status
+                servers.forEachIndexed { index, server ->
+                    preference {
+                        key = "server_status_$index"
+                        isPersistent = false
+                        title = server.name
+                        iconRes = server.logo
+                        onClick { checkServer(this, server) }
+                        checkServer(this, server)
+                    }
+                }
+                infoPreference(MR.strings.server_status_info)
+            }
+        }
+    }
+
+    /** A Kavita or Suwayomi server from an installed extension, and how to check it. */
+    private class ServerToCheck(
+        val name: String,
+        /** The app the server runs, such as Kavita, for the explanations. */
+        val app: String,
+        val logo: Int,
+        val isKavita: Boolean,
+        val check: suspend () -> ServerStatus,
+    )
+
+    private fun serversToCheck(): List<ServerToCheck> {
+        val context = activity ?: return emptyList()
+        val kavita = trackManager.kavita
+        val kavitaServers = kavita.servers().map { server ->
+            ServerToCheck(server.name, context.getString(kavita.nameRes()), kavita.getLogo(), isKavita = true) {
+                if (server.isSetUp) {
+                    kavita.api.checkServer(server.apiUrl, server.apiKey)
+                } else {
+                    ServerStatus.Problem(ServerStatus.Reason.NOT_SET_UP)
+                }
+            }
+        }
+        val suwayomi = trackManager.suwayomi
+        val suwayomiServer = Injekt.get<SourceManager>().getCatalogueSources().find(suwayomi::accept)?.let { source ->
+            ServerToCheck(source.name, context.getString(suwayomi.nameRes()), suwayomi.getLogo(), isKavita = false) {
+                suwayomi.api.checkServer()
+            }
+        }
+        return kavitaServers + listOfNotNull(suwayomiServer)
+    }
+
+    /** Checks a server and puts what it found in the preference's summary. Tapping it checks again. */
+    private fun checkServer(preference: Preference, server: ServerToCheck) {
+        val context = preference.context
+        preference.summary = context.getString(MR.strings.server_status_checking)
+        viewScope.launchIO {
+            val status = server.check()
+            withUIContext { preference.summary = describe(context, status, server) }
+        }
+    }
+
+    private fun describe(context: Context, status: ServerStatus, server: ServerToCheck): String {
+        val app = server.app
+        return when (status) {
+            is ServerStatus.Connected -> listOfNotNull(
+                context.getString(MR.strings.server_status_connected),
+                status.username?.let { context.getString(MR.strings.server_status_signed_in_as, it) },
+                status.version?.let { context.getString(MR.strings.server_status_version, app, it) },
+            ).joinToString(" · ")
+            is ServerStatus.Problem -> when (status.reason) {
+                ServerStatus.Reason.NOT_SET_UP -> context.getString(MR.strings.server_status_not_set_up, app)
+                ServerStatus.Reason.UNKNOWN_HOST -> context.getString(MR.strings.server_status_unknown_host, app)
+                ServerStatus.Reason.UNREACHABLE -> context.getString(MR.strings.server_status_unreachable)
+                ServerStatus.Reason.TIMED_OUT -> context.getString(MR.strings.server_status_timed_out)
+                ServerStatus.Reason.SECURE_CONNECTION -> context.getString(MR.strings.server_status_secure_connection)
+                ServerStatus.Reason.NOT_SIGNED_IN -> if (server.isKavita) {
+                    context.getString(MR.strings.server_status_kavita_key)
+                } else {
+                    context.getString(MR.strings.server_status_suwayomi_login)
+                }
+                ServerStatus.Reason.NOT_FOUND -> context.getString(MR.strings.server_status_not_found, app)
+                ServerStatus.Reason.SERVER_ERROR -> context.getString(MR.strings.server_status_server_error, app, status.httpCode ?: 500)
+                ServerStatus.Reason.OTHER -> context.getString(
+                    MR.strings.server_status_other,
+                    status.detail ?: context.getString(MR.strings.unknown_error),
+                )
+            }
         }
     }
 

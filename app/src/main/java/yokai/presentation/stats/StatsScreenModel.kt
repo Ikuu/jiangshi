@@ -40,11 +40,14 @@ import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingStats
 import yokai.domain.stats.SeriesStats
 import yokai.domain.stats.StatsPeriod
+import yokai.domain.stats.interactor.DeleteReadingSession
 import yokai.domain.stats.interactor.GetReadingSessions
+import java.time.LocalDate
 
 class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading) {
 
     private val getReadingSessions: GetReadingSessions by injectLazy()
+    private val deleteReadingSession: DeleteReadingSession by injectLazy()
     private val getLibraryManga: GetLibraryManga by injectLazy()
     private val getManga: GetManga by injectLazy()
     private val getChapter: GetChapter by injectLazy()
@@ -56,6 +59,9 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private var mangaByKey: Map<SeriesKey, Manga> = emptyMap()
     private var entryKinds: Map<SeriesKey, EntryKinds> = emptyMap()
     private var localKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
+
+    /** Chapter names by URL, for listing sessions. Sessions only keep the number, which isn't always a real one. */
+    private var chapterNames: Map<SeriesKey, Map<String, String>> = emptyMap()
 
     /** Pages in each entry of Kavita series, by Kavita chapter ID, kept for as long as the screen is open. */
     private var kavitaPages: Map<SeriesKey, Map<Int, Int>> = emptyMap()
@@ -78,6 +84,33 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
         mutableState.update { build(period) }
     }
 
+    /** The sessions started on [date], earliest first, as the reading calendar counts them. */
+    fun sessionsOn(date: LocalDate): List<ReadingSession> {
+        val zone = ZoneId.systemDefault()
+        return sessions.filter { Instant.ofEpochMilli(it.startedAt).atZone(zone).toLocalDate() == date }
+    }
+
+    /** The name of the chapter a session read, if the series is still in the app. */
+    fun chapterName(session: ReadingSession): String? =
+        chapterNames[SeriesKey(session.mangaSource, session.mangaUrl)]?.get(session.chapterUrl)?.takeIf { it.isNotBlank() }
+
+    /** Takes a session out of the stats for good, such as one from a reader left open, and works them out again. */
+    fun deleteSession(session: ReadingSession) {
+        val id = session.id ?: return
+        screenModelScope.launchIO {
+            try {
+                deleteReadingSession.await(id)
+            } catch (e: Exception) {
+                Logger.e(e) { "Could not delete reading session $id" }
+                return@launchIO
+            }
+            sessions = sessions.filter { it.id != id }
+            librarySummary = librarySummary()
+            val period = (state.value as? State.Success)?.period ?: return@launchIO
+            mutableState.update { build(period) }
+        }
+    }
+
     /** Reloads everything, for coming back to the screen after reading. */
     fun refresh() {
         load((state.value as? State.Success)?.period ?: StatsPeriod.WEEK)
@@ -91,9 +124,9 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             mangaByKey = getManga.awaitAll()
                 .associateBy { SeriesKey(it.source, it.url) }
                 .filterKeys { it in keys }
-            localKinds = mangaByKey.mapValues { (_, manga) ->
-                manga.id?.let { getChapter.awaitAll(it, false) }.orEmpty().associate { it.url to ChapterUtil.entryKind(it) }
-            }
+            val chaptersByKey = mangaByKey.mapValues { (_, manga) -> manga.id?.let { getChapter.awaitAll(it, false) }.orEmpty() }
+            localKinds = chaptersByKey.mapValues { (_, chapters) -> chapters.associate { it.url to ChapterUtil.entryKind(it) } }
+            chapterNames = chaptersByKey.mapValues { (_, chapters) -> chapters.associate { it.url to it.name } }
             updateEntryKinds()
             librarySummary = librarySummary()
             mutableState.update { build(period) }

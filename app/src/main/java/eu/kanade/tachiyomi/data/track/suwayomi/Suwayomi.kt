@@ -50,6 +50,16 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         const val UNREAD = 1
         const val READING = 2
         const val COMPLETED = 3
+
+        /** The numbers of the first [count] unread chapters after [chapterNumber], in order. */
+        internal fun nextUnreadNumbers(chapters: List<Chapter>, chapterNumber: Float, count: Int): Set<Float> =
+            chapters.asSequence()
+                .filter { !it.read && it.chapter_number > chapterNumber }
+                .map { it.chapter_number }
+                .distinct()
+                .sorted()
+                .take(count)
+                .toSet()
     }
 
     override fun getStatusList() = listOf(UNREAD, READING, COMPLETED)
@@ -185,6 +195,24 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
     /** Asks the server to download these chapters. Returns how many it queued. */
     suspend fun downloadOnServer(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Int =
         api.downloadOnServer(seriesUrl(manga, tracks), chapters.map { it.chapter_number }.filter { it >= 0f }.toSet())
+
+    /**
+     * Asks the server to download the next few unread chapters after [chapterNumber], as many as
+     * [PreferencesHelper.suwayomiDownloadAhead] says, so they're ready there before reading gets to them.
+     * Chapters the server already has are left alone.
+     */
+    suspend fun downloadAheadOnServer(manga: Manga, chapterNumber: Float) {
+        val ahead = preferences.suwayomiDownloadAhead().get()
+        val mangaId = manga.id ?: return
+        if (ahead <= 0 || chapterNumber < 0f || !accept(sourceManager.getOrStub(manga.source))) return
+        val next = nextUnreadNumbers(getChapter.awaitAll(mangaId, false), chapterNumber, ahead)
+        if (next.isEmpty()) return
+        try {
+            api.downloadOnServer(seriesUrl(manga, getTrack.awaitAllByMangaId(mangaId)), next)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not download the next chapters on Suwayomi for ${manga.url}" }
+        }
+    }
 
     /** Removes these chapters' downloads from the server. Returns how many it removed. */
     suspend fun removeFromServer(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Int =

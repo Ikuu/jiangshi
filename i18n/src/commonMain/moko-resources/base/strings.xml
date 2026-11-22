@@ -1098,12 +1098,17 @@
     <string name="stats_goal_minutes">Minutes</string>
     <string name="stats_goal_chapters">Chapters</string>
     <string name="stats_goal_target">Target</string>
-    <string name="reading_reminder">Reading reminder</string>
     <string name="reading_reminders">Reading reminders</string>
     <string name="streak_reminder">Streak reminder</string>
     <string name="streak_reminder_summary">A notification in the evening if you have a reading streak going and haven\'t read yet that day</string>
     <string name="streak_reminder_time">Remind me at</string>
     <string name="streak_reminder_body">You haven\'t read today. Read a little before midnight to keep it going.</string>
+    <string name="weekly_recap">Weekly recap</string>
+    <string name="weekly_recap_summary">A notification on %1$s at %2$s with the week\'s reading, compared with the week before</string>
+    <string name="weekly_recap_title">📚 This week: %1$s read</string>
+    <string name="weekly_recap_more">%1$s more than last week</string>
+    <string name="weekly_recap_less">%1$s less than last week</string>
+    <string name="weekly_recap_same">About the same as last week</string>
     <string name="stats_year_in_review">%1$d in review</string>
     <string name="stats_year_in_review_body">The year\'s reading at a glance</string>
     <string name="year_review_days_read">Days read</string>
@@ -1124,6 +1129,12 @@
     <string name="reading_history">Reading history</string>
     <string name="reading_history_day">%1$s · %2$s</string>
     <string name="reading_history_more">+%1$d more</string>
+    <string name="stats_day_sessions">Sessions</string>
+    <string name="stats_day_no_sessions">Nothing read this day</string>
+    <string name="stats_session_when">%1$s · %2$s</string>
+    <string name="stats_delete_session">Delete session</string>
+    <string name="stats_delete_session_title">Delete this session?</string>
+    <string name="stats_delete_session_body">%1$s reading %2$s is taken out of Statistics for good.</string>
 
     <!-- Suwayomi server downloads -->
     <string name="server_downloads">Server downloads</string>
@@ -1137,6 +1148,8 @@
     <string name="server_download_failed">Server download failed</string>
     <string name="server_already_has_chapters">The server already has these chapters</string>
     <string name="could_not_reach_suwayomi">Couldn\'t reach the Suwayomi server</string>
+    <string name="download_ahead_on_server">Download ahead on the Suwayomi server</string>
+    <string name="download_ahead_on_server_info">When you finish a chapter from Suwayomi, the server downloads the next unread ones, so they\'re ready there before you get to them</string>
 
     <!-- Kavita lists -->
     <string name="on_deck">On Deck</string>
@@ -1148,6 +1161,18 @@
     <string name="added_to_want_to_read">Added to Want to Read</string>
     <string name="removed_from_want_to_read">Removed from Want to Read</string>
     <string name="could_not_update_want_to_read">Couldn\'t update Want to Read</string>
+
+    <!-- Series linked across Kavita and Suwayomi -->
+    <string name="linked_series">Linked series</string>
+    <string name="link_with_server_series">Link with the same series on %1$s</string>
+    <string name="link_series_none">There\'s no series from %1$s in your library to link with. Add the same series from %1$s to your library first.</string>
+    <string name="link_series_confirm_title">Link with %1$s?</string>
+    <string name="link_series_confirm_body">Chapters marked read or unread in either series are marked the same in the other, matched by chapter number, and sent on to its server. Whole volumes and specials are left out. Linking now marks chapters read in either series read in both, here and on the servers.</string>
+    <string name="linked_series_info">Linked with %1$s on %2$s. Chapters marked read or unread in either are marked the same in the other, matched by chapter number.</string>
+    <string name="linked_series_done">Linked with %1$s</string>
+    <string name="linked_series_removed">No longer linked</string>
+    <string name="link">Link</string>
+    <string name="unlink">Unlink</string>
 
     <!-- Updates waiting to reach a tracker or server -->
     <string name="pending_updates">Waiting to send</string>
@@ -1164,6 +1189,24 @@
     <string name="discard_ticked">Discard ticked</string>
     <string name="sending_pending_updates">Sending waiting updates</string>
     <string name="pending_updates_all_sent">All sent</string>
+
+    <!-- Server status -->
+    <string name="server_status">Server status</string>
+    <string name="server_status_info">Tap a server to check it again</string>
+    <string name="server_status_checking">Checking…</string>
+    <string name="server_status_connected">Connected</string>
+    <string name="server_status_signed_in_as">signed in as %1$s</string>
+    <string name="server_status_version">%1$s %2$s</string>
+    <string name="server_status_not_set_up">Not set up yet. Add the server\'s address in the %1$s extension\'s settings</string>
+    <string name="server_status_unknown_host">Can\'t find a server at that address. Check the address in the %1$s extension\'s settings, and that your VPN is on if you use one</string>
+    <string name="server_status_unreachable">The server didn\'t answer. Check it\'s running, and that you\'re on its network or VPN</string>
+    <string name="server_status_timed_out">The server took too long to answer. It may be busy, or out of reach from this network</string>
+    <string name="server_status_secure_connection">Couldn\'t make a secure connection. Check whether the address should start with http:// or https://</string>
+    <string name="server_status_kavita_key">Kavita didn\'t accept the API key. Copy it again from your account settings in Kavita into the Kavita extension\'s settings</string>
+    <string name="server_status_suwayomi_login">Suwayomi didn\'t accept the sign-in. Check the login mode, username and password in the Suwayomi extension\'s settings. A server using UI Login needs that mode chosen there</string>
+    <string name="server_status_not_found">Something answered at that address, but not %1$s. Check the address and port</string>
+    <string name="server_status_server_error">%1$s had an error of its own (HTTP %2$d). Its logs should say what went wrong</string>
+    <string name="server_status_other">Couldn\'t check the server: %1$s</string>
 
     <!-- Time -->
     <string name="manual">Manual</string>

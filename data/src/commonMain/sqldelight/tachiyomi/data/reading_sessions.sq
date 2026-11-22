@@ -62,5 +62,9 @@ SELECT * FROM reading_sessions
 WHERE manga_source = :mangaSource AND manga_url = :mangaUrl
 ORDER BY started_at;
 
+deleteById:
+DELETE FROM reading_sessions
+WHERE _id = :id;
+
 deleteAll:
 DELETE FROM reading_sessions;

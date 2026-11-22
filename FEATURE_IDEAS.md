@@ -31,8 +31,31 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 | [x] | **Pending tracker updates** (unreleased) | Settings → Tracking lists tracker updates and Suwayomi read marks still waiting to be sent, with Send now and discard | Small |
 | [x] | **Show server-linked trackers** (1.4.0) | The tracking sheet shows what's linked on the server and whether it updated, using `trackRecords` | Medium |
 
+## More ideas
+
+Added 2026-11-22, after 1.7.0. Not in any order yet.
+
+| Done | Idea | What you'd get | Effort |
+| --- | --- | --- | --- |
+| [x] | **Queue the next chapters on the server** (unreleased) | Finishing a Suwayomi chapter asks the server to download the next few unread ones, so they're ready before you get there. Optional, with how many to keep ahead | Small |
+| [ ] | **Remove read chapters from the server** | Optionally remove a chapter's server download once it's read, keeping the last few, so the server's disk doesn't fill up | Small |
+| [ ] | **Suwayomi server library** | A button when browsing the Suwayomi source, listing the series in the server's library, like Kavita's On Deck | Small to medium |
+| [x] | **Server status** (unreleased) | Settings shows whether Kavita and Suwayomi can be reached, their version and whether you're signed in, with sign-in errors explained in plain words | Small |
+| [ ] | **Older reading in Statistics** | Chapters read before 1.5.0 count towards Statistics, estimated from the time read and date already in history, and marked as estimated | Small to medium |
+| [x] | **Edit reading sessions** (unreleased) | See each session for a day and delete wrong ones, such as a reader left open, so the stats can be fixed. Opened from a day in the reading calendar | Small |
+| [ ] | **Rest days** | Choose one or two days a week that don't break the streak if you don't read | Small |
+| [x] | **Weekly recap** (unreleased) | An optional notification on Sunday evening with the week's time read and chapters, compared with the week before | Small |
+| [ ] | **Month in review** | The year in review, for a single month | Small |
+| [ ] | **Statistics widget** | A home screen widget with the current streak and today's progress towards the goal. The app already has a widget module to build on | Medium |
+| [ ] | **Finish by a date** | Set a date to finish a series, and its page says how much a day that needs, next to the time left | Small |
+| [ ] | **Time left in the chapter** | The reader's menu says roughly how long the rest of the chapter would take at your pace | Small |
+| [ ] | **Export statistics** | Save reading sessions as a CSV file | Small |
+| [x] | **One series on both servers** (unreleased) | Link a series in Kavita with the same series in Suwayomi, so reading one marks the matching chapters read in the other | Medium to large |
+
 ## Known follow-ups
 
 - [x] **Deprecated Suwayomi field.** The tracker reads `lastReadChapter`, which Suwayomi has deprecated in favour of `user.lastReadChapter`. Queries now use the `user` fields and fall back to the old ones on servers from before user accounts (unreleased).
 - [ ] **Year in review entry names.** Top series in the year in review count issues for comics and chapters otherwise, where the Statistics page asks Kavita whether entries are volumes. A Kavita series read by volume shows "0 issues read".
+- [ ] **Linked series during library updates.** Library updates bring in chapters read on a Suwayomi server, but don't pass them on to a linked Kavita series. That happens when the series is opened.
+- [ ] **New features partly tested on a device.** On the tablet (2026-11-22), server status reached both servers, the settings appear, the sessions list opens with chapter names, and Linked series lists the Suwayomi series. Still to try: actually linking two series, a recap notification, downloading ahead after finishing a Suwayomi chapter, and deleting a session.
 - [ ] **Untested on a device.** Marking chapters read or unread from the library and Recents screens uses the same code as the series screen, but hasn't been tried on a real device.

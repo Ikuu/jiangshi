@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.kavita
 
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.ServerStatus
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.POST
@@ -13,6 +14,7 @@ import eu.kanade.tachiyomi.util.system.withIOContext
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.Dns
@@ -284,6 +286,31 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
                 }
             }
             MangasPage(mangas, totalPages?.let { page < it } ?: (series.size == SERIES_PAGE_SIZE))
+        }
+    }
+
+    /**
+     * Checks a Kavita server: whether it answers, whether it takes the API key, and which version it runs.
+     * Goes without the usual sign-in, so a key the server stopped taking shows up here.
+     */
+    suspend fun checkServer(apiUrl: String, apiKey: String): ServerStatus = withIOContext {
+        val api = apiUrl.trimEnd('/')
+        try {
+            val auth = POST("$api/Plugin/authenticate?apiKey=$apiKey&pluginName=Tachiyomi-Kavita", body = jsonBody("{}"))
+            val username = client.newCall(auth).awaitSuccess().parseAs<AuthenticationDto>().username
+            // Only for display, so a server that won't say still counts as connected
+            val version = try {
+                client.newCall(GET("$api/Plugin/version?apiKey=$apiKey")).awaitSuccess()
+                    .use { it.body.string() }.trim().trim('"').takeIf { it.isNotEmpty() && it.length < 40 }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                null
+            }
+            ServerStatus.Connected(version, username)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Logger.w(e) { "Kavita server check failed" }
+            ServerStatus.of(e)
         }
     }
 

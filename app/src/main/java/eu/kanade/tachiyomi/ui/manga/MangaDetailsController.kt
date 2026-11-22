@@ -146,6 +146,9 @@ import eu.kanade.tachiyomi.util.view.setTextColorAlpha
 import eu.kanade.tachiyomi.util.view.snack
 import eu.kanade.tachiyomi.util.view.toolbarHeight
 import eu.kanade.tachiyomi.util.view.withFadeTransaction
+import eu.kanade.tachiyomi.util.view.setNeutralButton
+import eu.kanade.tachiyomi.util.view.setTitle
+import eu.kanade.tachiyomi.util.system.withIOContext
 import eu.kanade.tachiyomi.widget.LinearLayoutManagerAccurateOffset
 import java.io.File
 import java.io.IOException
@@ -1095,6 +1098,55 @@ class MangaDetailsController :
             .show()
     }
 
+    /**
+     * Shows the series this one is linked with on the other server, with a way to open or unlink it, or
+     * offers series from the other server to link with, closest titles first.
+     */
+    private fun showLinkedSeries() {
+        val activity = activity ?: return
+        val server = presenter.otherServerName(activity)
+        viewScope.launchUI {
+            val linked = withIOContext { presenter.linkedSeries() }
+            if (linked != null) {
+                activity.materialAlertDialog()
+                    .setTitle(MR.strings.linked_series)
+                    .setMessage(activity.getString(MR.strings.linked_series_info, linked.title, server))
+                    .setPositiveButton(MR.strings.open) { _, _ ->
+                        router.pushController(MangaDetailsController(linked).withFadeTransaction())
+                    }
+                    .setNeutralButton(MR.strings.unlink) { _, _ -> presenter.unlinkSeries() }
+                    .setNegativeButton(MR.strings.close, null)
+                    .show()
+                return@launchUI
+            }
+            val candidates = withIOContext { presenter.linkCandidates() }
+            if (candidates.isEmpty()) {
+                activity.materialAlertDialog()
+                    .setTitle(activity.getString(MR.strings.link_with_server_series, server))
+                    .setMessage(activity.getString(MR.strings.link_series_none, server))
+                    .setPositiveButton(MR.strings.close, null)
+                    .show()
+                return@launchUI
+            }
+            activity.materialAlertDialog()
+                .setTitle(activity.getString(MR.strings.link_with_server_series, server))
+                .setItems(candidates.map { it.title }.toTypedArray()) { _, which -> confirmLink(candidates[which], server) }
+                .setNegativeButton(MR.strings.cancel, null)
+                .show()
+        }
+    }
+
+    /** Linking marks chapters read on both servers, so it's checked first. */
+    private fun confirmLink(other: Manga, server: String) {
+        val activity = activity ?: return
+        activity.materialAlertDialog()
+            .setTitle(activity.getString(MR.strings.link_series_confirm_title, other.title))
+            .setMessage(activity.getString(MR.strings.link_series_confirm_body, server))
+            .setPositiveButton(MR.strings.link) { _, _ -> presenter.linkSeries(other) }
+            .setNegativeButton(MR.strings.cancel, null)
+            .show()
+    }
+
     private fun showVolumeMenu(header: VolumeHeaderItem) {
         val activity = activity ?: return
         val chapters = header.chapters
@@ -1328,6 +1380,7 @@ class MangaDetailsController :
         menu.findItem(R.id.action_migrate)?.isVisible = !presenter.isLockedFromSearch &&
             !presenter.manga.isLocal() && presenter.manga.favorite
         menu.findItem(R.id.action_server_downloads)?.isVisible = !presenter.isLockedFromSearch && presenter.isSuwayomiSource
+        menu.findItem(R.id.action_linked_series)?.isVisible = !presenter.isLockedFromSearch && presenter.canLinkSeries
         menu.findItem(R.id.action_want_to_read)?.apply {
             val wanted = presenter.isInWantToRead
             isVisible = wanted != null && !presenter.isLockedFromSearch
@@ -1377,6 +1430,7 @@ class MangaDetailsController :
                 item.itemId,
             )
             R.id.action_want_to_read -> presenter.toggleWantToRead()
+            R.id.action_linked_series -> showLinkedSeries()
             R.id.server_download_unread -> presenter.downloadOnServer(presenter.chapters.filter { !it.read })
             R.id.server_remove_read -> presenter.removeFromServer(presenter.allChapters.filter { it.read })
             else -> return super.onOptionsItemSelected(item)

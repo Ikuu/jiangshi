@@ -7,6 +7,8 @@ import yokai.i18n.MR
 import yokai.util.lang.getString
 import eu.kanade.tachiyomi.data.database.models.Category
 import eu.kanade.tachiyomi.data.preference.changesIn
+import eu.kanade.tachiyomi.data.track.TrackManager
+import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.setting.SettingsLegacyController
 import eu.kanade.tachiyomi.ui.setting.bindTo
 import eu.kanade.tachiyomi.ui.setting.defaultValue
@@ -31,6 +33,10 @@ class SettingsDownloadController : SettingsLegacyController() {
     private val getCategories: GetCategories by injectLazy()
 
     private val downloadPreferences: DownloadPreferences by injectLazy()
+
+    private val sourceManager: SourceManager by injectLazy()
+
+    private val trackManager: TrackManager by injectLazy()
 
     override fun setupPreferenceScreen(screen: PreferenceScreen) = screen.apply {
         titleRes = MR.strings.downloads
@@ -117,6 +123,8 @@ class SettingsDownloadController : SettingsLegacyController() {
 
         preferenceCategory {
             titleRes = MR.strings.download_ahead
+            // Downloading ahead on the server only applies to the Suwayomi extension's series
+            val hasSuwayomi = sourceManager.getCatalogueSources().any(trackManager.suwayomi::accept)
 
             intListPreference(activity) {
                 bindTo(preferences.autoDownloadWhileReading())
@@ -131,6 +139,21 @@ class SettingsDownloadController : SettingsLegacyController() {
                 entryValues = listOf(0, 2, 3, 5, 10)
             }
             infoPreference(MR.strings.download_ahead_info)
+            intListPreference(activity) {
+                bindTo(preferences.suwayomiDownloadAhead())
+                titleRes = MR.strings.download_ahead_on_server
+                entries = listOf(
+                    context.getString(MR.strings.never),
+                    context.getString(MR.plurals.next_unread_chapters, 1, 1),
+                    context.getString(MR.plurals.next_unread_chapters, 2, 2),
+                    context.getString(MR.plurals.next_unread_chapters, 3, 3),
+                    context.getString(MR.plurals.next_unread_chapters, 5, 5),
+                    context.getString(MR.plurals.next_unread_chapters, 10, 10),
+                )
+                entryValues = listOf(0, 1, 2, 3, 5, 10)
+                isVisible = hasSuwayomi
+            }
+            infoPreference(MR.strings.download_ahead_on_server_info).isVisible = hasSuwayomi
         }
 
         preferenceCategory {

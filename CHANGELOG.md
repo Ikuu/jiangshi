@@ -4,6 +4,10 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Changes
+- Statistics has its own tab in the navigation bar, next to Browse, in place of its item in the ⋮ menu. The streak reminder and weekly recap open it
+- The Statistics reading calendar shows the last nine weeks as larger, numbered squares, with weekday and month names, so a day is easier to see and tap. Show more switches to the smaller squares going back further. Days with only a little reading stand out more from days without any
+
 ## [1.8.0] - 2026-11-22
 
 ### Additions

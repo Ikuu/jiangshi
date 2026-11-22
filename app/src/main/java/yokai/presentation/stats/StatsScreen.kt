@@ -95,6 +95,11 @@ import yokai.util.lang.getString
 private val ContentMaxWidth = 720.dp
 private const val MOST_READ_LIMIT = 10
 
+/** Set when Statistics is a tab of the main navigation, with the room the bottom navigation takes. */
+data class StatsTab(val bottomPadding: androidx.compose.ui.unit.Dp)
+
+val LocalStatsTab = androidx.compose.runtime.compositionLocalOf<StatsTab?> { null }
+
 class StatsScreen : Screen() {
     @Composable
     override fun Content() {
@@ -107,8 +112,10 @@ class StatsScreen : Screen() {
         // Reload on every visit, so coming back from the reader shows the new reading
         LaunchedEffect(Unit) { screenModel.refresh() }
 
+        val tab = LocalStatsTab.current
         YokaiScaffold(
             onNavigationIconClicked = onBackPress,
+            showNavigationIcon = tab == null,
             title = stringResource(MR.strings.statistics),
             appBarType = AppBarType.SMALL,
             scrollBehavior = enterAlwaysAppBarScrollBehavior(
@@ -123,6 +130,7 @@ class StatsScreen : Screen() {
                     state = current,
                     listState = listState,
                     contentPadding = innerPadding,
+                    bottomPadding = tab?.bottomPadding ?: 0.dp,
                     onPeriodChange = screenModel::setPeriod,
                     onGoalChange = screenModel::setGoal,
                     onOpenYear = { navigator.push(YearInReviewScreen(it)) },
@@ -140,6 +148,7 @@ private fun StatsContent(
     state: StatsScreenModel.State.Success,
     listState: androidx.compose.foundation.lazy.LazyListState,
     contentPadding: PaddingValues,
+    bottomPadding: androidx.compose.ui.unit.Dp,
     onPeriodChange: (StatsPeriod) -> Unit,
     onGoalChange: (ReadingGoal?) -> Unit,
     onOpenYear: (Int) -> Unit,
@@ -183,7 +192,7 @@ private fun StatsContent(
             state = listState,
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding() + 8.dp,
-                bottom = contentPadding.calculateBottomPadding() + 24.dp,
+                bottom = contentPadding.calculateBottomPadding() + bottomPadding + 24.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(horizontal = 16.dp),

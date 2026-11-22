@@ -48,6 +48,13 @@ import java.time.DayOfWeek
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.coerceIn
+import androidx.compose.ui.text.font.FontWeight
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 import yokai.i18n.MR
 
 private val BarMaxWidth = 24.dp
@@ -154,8 +161,9 @@ fun ColumnChart(
 }
 
 /**
- * A calendar of reading days, weeks as columns ending this week, as many weeks as fit.
- * More reading is a darker step of one colour.
+ * A calendar of reading days, weeks as columns ending this week. It starts on the last [COMPACT_WEEKS] weeks
+ * as large numbered squares filling the width, with weekday and month names, and Show more switches to small
+ * squares going back as far as fit. More reading is a darker step of one colour.
  */
 @Composable
 fun ReadingCalendar(
@@ -169,16 +177,22 @@ fun ReadingCalendar(
     onOpenDay: ((LocalDate) -> Unit)? = null,
 ) {
     var selected by remember(readingDays) { mutableStateOf<LocalDate?>(null) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     val empty = MaterialTheme.colorScheme.surfaceVariant
     val full = MaterialTheme.colorScheme.primary
-    val levels = remember(empty, full) { listOf(empty) + (1..4).map { lerp(empty, full, it / 4f) } }
+    // The lightest step starts well clear of empty, so a few minutes' reading still stands out
+    val levels = remember(empty, full) { listOf(empty) + (1..4).map { lerp(empty, full, 0.3f + 0.7f * it / 4f) } }
     val outline = MaterialTheme.colorScheme.onSurface
-    val cell = 14.dp
-    val gap = 3.dp
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val onFull = MaterialTheme.colorScheme.onPrimary
+    val labelStyle = MaterialTheme.typography.labelSmall
+    val textMeasurer = rememberTextMeasurer()
+    val locale = remember { Locale.getDefault() }
+    val monthFormat = remember(locale) { DateTimeFormatter.ofPattern("MMM", locale) }
 
     Column(modifier) {
         val readout = selected?.let { "${formatDate(it)} · ${formatValue(readingDays[it] ?: 0L)}" } ?: summary
-        Row(Modifier.heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 readout,
                 style = MaterialTheme.typography.bodyMedium,
@@ -193,66 +207,122 @@ fun ReadingCalendar(
         }
         Spacer(Modifier.height(4.dp))
 
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val weeks = ((maxWidth + gap) / (cell + gap)).toInt().coerceAtLeast(1)
-        val lastWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val firstWeekStart = lastWeekStart.minusWeeks((weeks - 1).coerceAtLeast(0).toLong())
-        val visibleMax = readingDays.filterKeys { !it.isBefore(firstWeekStart) && !it.isAfter(today) }.values.maxOrNull() ?: 0L
+        BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            // Weekday names down the side and month names along the top, only with the large squares
+            val labelled = !expanded
+            val sideLabel = if (labelled) 34.dp else 0.dp
+            val topLabel = if (labelled) 20.dp else 0.dp
+            val gap = if (expanded) 3.dp else 4.dp
+            val weeks: Int
+            val cell: Dp
+            if (expanded) {
+                cell = 14.dp
+                weeks = ((maxWidth + gap) / (cell + gap)).toInt().coerceAtLeast(1)
+            } else {
+                weeks = COMPACT_WEEKS
+                cell = ((maxWidth - sideLabel - gap * (weeks - 1)) / weeks).coerceIn(14.dp, 48.dp)
+            }
+            val lastWeekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val firstWeekStart = lastWeekStart.minusWeeks((weeks - 1).coerceAtLeast(0).toLong())
+            val visibleMax = readingDays.filterKeys { !it.isBefore(firstWeekStart) && !it.isAfter(today) }.values.maxOrNull() ?: 0L
+            val showNumbers = cell >= 22.dp
 
-        fun level(value: Long): Int = when {
-            value <= 0L || visibleMax == 0L -> 0
-            else -> (1 + (value * 4 / (visibleMax + 1)).toInt()).coerceIn(1, 4)
-        }
+            fun level(value: Long): Int = when {
+                value <= 0L || visibleMax == 0L -> 0
+                else -> (1 + (value * 4 / (visibleMax + 1)).toInt()).coerceIn(1, 4)
+            }
 
-        Canvas(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(cell * 7 + gap * 6)
-                .pointerInput(weeks, firstWeekStart) {
-                    detectTapGestures { offset ->
-                        val step = (cell + gap).toPx()
-                        val column = (offset.x / step).toInt()
-                        val row = (offset.y / step).toInt().coerceIn(0, 6)
-                        if (column !in 0 until weeks) return@detectTapGestures
-                        val date = firstWeekStart.plusWeeks(column.toLong()).plusDays(row.toLong())
-                        if (date.isAfter(today)) return@detectTapGestures
-                        selected = if (selected == date) null else date
+            Canvas(
+                modifier = Modifier
+                    .width(sideLabel + cell * weeks + gap * (weeks - 1))
+                    .height(topLabel + cell * 7 + gap * 6)
+                    .pointerInput(weeks, firstWeekStart, cell) {
+                        detectTapGestures { offset ->
+                            val step = (cell + gap).toPx()
+                            val x = offset.x - sideLabel.toPx()
+                            val y = offset.y - topLabel.toPx()
+                            if (x < 0f || y < 0f) return@detectTapGestures
+                            val column = (x / step).toInt()
+                            val row = (y / step).toInt().coerceIn(0, 6)
+                            if (column !in 0 until weeks) return@detectTapGestures
+                            val date = firstWeekStart.plusWeeks(column.toLong()).plusDays(row.toLong())
+                            if (date.isAfter(today)) return@detectTapGestures
+                            selected = if (selected == date) null else date
+                        }
+                    },
+            ) {
+                val step = (cell + gap).toPx()
+                val cellPx = cell.toPx()
+                val left = sideLabel.toPx()
+                val top = topLabel.toPx()
+                val corner = CornerRadius(if (showNumbers) 6.dp.toPx() else 3.dp.toPx())
+
+                if (labelled) {
+                    for (row in 0 until 7) {
+                        val name = DayOfWeek.MONDAY.plus(row.toLong()).getDisplayName(TextStyle.SHORT, locale)
+                        val layout = textMeasurer.measure(name, labelStyle.copy(color = labelColor))
+                        drawText(layout, topLeft = Offset(0f, top + row * step + (cellPx - layout.size.height) / 2))
                     }
-                },
-        ) {
-            val step = (cell + gap).toPx()
-            val corner = CornerRadius(3.dp.toPx())
-            for (column in 0 until weeks) {
-                for (row in 0 until 7) {
-                    val date = firstWeekStart.plusWeeks(column.toLong()).plusDays(row.toLong())
-                    if (date.isAfter(today)) continue
-                    val topLeft = Offset(column * step, row * step)
-                    drawRoundRect(levels[level(readingDays[date] ?: 0L)], topLeft, Size(cell.toPx(), cell.toPx()), corner)
-                    if (date == selected) {
-                        drawRoundRect(
-                            outline,
-                            topLeft,
-                            Size(cell.toPx(), cell.toPx()),
-                            corner,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()),
-                        )
+                    // A month's name goes over the first column, and over the week its first day falls in
+                    for (column in 0 until weeks) {
+                        val weekStart = firstWeekStart.plusWeeks(column.toLong())
+                        val firstOfMonth = (0L..6L).map { weekStart.plusDays(it) }.find { it.dayOfMonth == 1 && !it.isAfter(today) }
+                        val labelDate = firstOfMonth ?: weekStart.takeIf { column == 0 } ?: continue
+                        val layout = textMeasurer.measure(monthFormat.format(labelDate), labelStyle.copy(color = labelColor))
+                        drawText(layout, topLeft = Offset(left + column * step, 0f))
+                    }
+                }
+
+                for (column in 0 until weeks) {
+                    for (row in 0 until 7) {
+                        val date = firstWeekStart.plusWeeks(column.toLong()).plusDays(row.toLong())
+                        if (date.isAfter(today)) continue
+                        val topLeft = Offset(left + column * step, top + row * step)
+                        val level = level(readingDays[date] ?: 0L)
+                        drawRoundRect(levels[level], topLeft, Size(cellPx, cellPx), corner)
+                        if (showNumbers) {
+                            val style = labelStyle.copy(
+                                color = if (level >= 3) onFull else labelColor,
+                                fontWeight = if (date == today) FontWeight.Bold else null,
+                            )
+                            val layout = textMeasurer.measure(date.dayOfMonth.toString(), style)
+                            drawText(
+                                layout,
+                                topLeft = topLeft + Offset((cellPx - layout.size.width) / 2, (cellPx - layout.size.height) / 2),
+                            )
+                        }
+                        if (date == selected) {
+                            drawRoundRect(
+                                outline,
+                                topLeft,
+                                Size(cellPx, cellPx),
+                                corner,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx()),
+                            )
+                        }
                     }
                 }
             }
         }
-        }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(4.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(stringResource(MR.strings.stats_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(MR.strings.stats_less), style = labelStyle, color = labelColor)
             Spacer(Modifier.width(4.dp))
             levels.forEach { color ->
                 Box(Modifier.size(10.dp).clip(RoundedCornerShape(2.dp)).background(color))
             }
             Spacer(Modifier.width(4.dp))
-            Text(stringResource(MR.strings.stats_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(MR.strings.stats_more), style = labelStyle, color = labelColor)
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(stringResource(if (expanded) MR.strings.stats_calendar_show_less else MR.strings.stats_calendar_show_more))
+            }
         }
     }
 }
+
+/** Weeks the reading calendar shows at first: about the last two months. */
+private const val COMPACT_WEEKS = 9
 
 /** A name and figure per row with a thin bar under it, scaled to the largest row. Largest first. */
 @Composable

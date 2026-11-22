@@ -13,6 +13,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +42,8 @@ fun YokaiScaffold(
     fab: @Composable () -> Unit = {},
     navigationIcon: ImageVector = Icons.AutoMirrored.Filled.ArrowBack,
     navigationIconLabel: String = stringResource(MR.strings.back),
+    /** Off for a screen that's a tab of the main navigation, with nothing to go back to. */
+    showNavigationIcon: Boolean = true,
     actions: @Composable RowScope.() -> Unit = {},
     appBarType: AppBarType = AppBarType.LARGE,
     snackbarHost: @Composable () -> Unit = {},
@@ -75,11 +80,16 @@ fun YokaiScaffold(
                         scrolledContainerColor = scrolledColor,
                     ),
                     navigationIcon = {
-                        ToolTipButton(
-                            toolTipLabel = navigationIconLabel,
-                            icon = navigationIcon,
-                            buttonClicked = onNavigationIconClicked,
-                        )
+                        if (showNavigationIcon) {
+                            ToolTipButton(
+                                toolTipLabel = navigationIconLabel,
+                                icon = navigationIcon,
+                                buttonClicked = onNavigationIconClicked,
+                            )
+                        } else {
+                            // Keeps the title off the edge, where the icon would have been
+                            Spacer(Modifier.width(12.dp))
+                        }
                     },
                     scrollBehavior = scrollBehaviorOrDefault,
                     actions = actions,
@@ -96,11 +106,16 @@ fun YokaiScaffold(
                         scrolledContainerColor = scrolledColor,
                     ),
                     navigationIcon = {
-                        ToolTipButton(
-                            toolTipLabel = navigationIconLabel,
-                            icon = navigationIcon,
-                            buttonClicked = onNavigationIconClicked,
-                        )
+                        if (showNavigationIcon) {
+                            ToolTipButton(
+                                toolTipLabel = navigationIconLabel,
+                                icon = navigationIcon,
+                                buttonClicked = onNavigationIconClicked,
+                            )
+                        } else {
+                            // Keeps the title off the edge, where the icon would have been
+                            Spacer(Modifier.width(12.dp))
+                        }
                     },
                     scrollBehavior = scrollBehaviorOrDefault,
                     actions = actions,

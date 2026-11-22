@@ -1130,6 +1130,8 @@
     <string name="reading_history_day">%1$s · %2$s</string>
     <string name="reading_history_more">+%1$d more</string>
     <string name="stats_day_sessions">Sessions</string>
+    <string name="stats_calendar_show_more">Show more</string>
+    <string name="stats_calendar_show_less">Show less</string>
     <string name="stats_day_no_sessions">Nothing read this day</string>
     <string name="stats_session_when">%1$s · %2$s</string>
     <string name="stats_delete_session">Delete session</string>

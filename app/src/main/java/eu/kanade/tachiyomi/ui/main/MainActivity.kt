@@ -510,6 +510,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 when (router.backstack.firstOrNull()?.controller) {
                     is RecentsController -> R.id.nav_recents
                     is BrowseController -> R.id.nav_browse
+                    is StatsController -> R.id.nav_stats
                     else -> R.id.nav_library
                 }
         }
@@ -533,6 +534,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     when (id) {
                         R.id.nav_library -> if (basePreferences.composeLibrary().get()) LibraryComposeController() else LibraryController()
                         R.id.nav_recents -> RecentsController()
+                        R.id.nav_stats -> StatsController()
                         else -> BrowseController()
                     },
                     id,
@@ -1109,8 +1111,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 }
             }
             SHORTCUT_STATS -> {
-                if (router.backstack.isEmpty()) nav.selectedItemId = R.id.nav_library
-                if (router.backstack.lastOrNull()?.controller !is StatsController) showStats()
+                showStats()
             }
             Intent.ACTION_VIEW -> {
                 if (router.backstack.isEmpty()) nav.selectedItemId = R.id.nav_library
@@ -1199,7 +1200,8 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
 
     private fun setStartingTab() {
         if (this is SearchActivity || !isBindingInitialized) return
-        if (nav.selectedItemId != R.id.nav_browse &&
+        // Browse and Stats aren't remembered as the tab to start on
+        if (nav.selectedItemId != R.id.nav_browse && nav.selectedItemId != R.id.nav_stats &&
             preferences.startingTab().get() >= 0
         ) {
             preferences.startingTab().set(
@@ -1375,8 +1377,9 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         router.pushController(AboutController().withFadeTransaction())
     }
 
+    /** Statistics is a tab of its own, so this switches to it, leaving any screen open over another tab. */
     fun showStats() {
-        router.pushController(StatsController().withFadeTransaction())
+        nav.selectedItemId = R.id.nav_stats
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
@@ -1467,7 +1470,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                 .distinct()
             val navWidth = sideNav.width.takeIf { it != 0 } ?: 80.dpToPx
             controllers.forEach { controller ->
-                val isRootController = controller is RootSearchInterface
+                val isRootController = controller is RootSearchInterface || controller is StatsController
                 if (controller.view?.layoutParams !is ViewGroup.MarginLayoutParams) return@forEach
                 controller.view?.updateLayoutParams<ViewGroup.MarginLayoutParams> {
                     marginStart = if (sideNav.isVisible) {

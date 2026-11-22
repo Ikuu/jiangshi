@@ -123,7 +123,8 @@ private fun YearInReviewContent(
             state = listState,
             contentPadding = PaddingValues(
                 top = contentPadding.calculateTopPadding() + 8.dp,
-                bottom = contentPadding.calculateBottomPadding() + 24.dp,
+                // Clear of the bottom navigation when Statistics is a tab
+                bottom = contentPadding.calculateBottomPadding() + (LocalStatsTab.current?.bottomPadding ?: 0.dp) + 24.dp,
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(horizontal = 16.dp),

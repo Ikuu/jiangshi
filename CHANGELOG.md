@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-22
+
 ### Additions
 - Finishing a chapter from Suwayomi can have the server download the next unread ones, so they're ready there before you get to them. Choose how many in Settings → Downloads, under Download ahead. Off by default
 - Tap a day in the Statistics reading calendar, then Sessions, to see each reading session that day, with when it started, how long it lasted and what was read. Delete one that's wrong, such as from a reader left open, and the stats are worked out again without it

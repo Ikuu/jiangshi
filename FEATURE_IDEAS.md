@@ -13,7 +13,7 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 | [x] | **Kavita unread fix** (unreleased) | Marking chapters read or unread reaches Kavita, so a finished chapter marked unread stays unread. The reader also sends the page reached and finished chapters. Tested on the tablet 2026-11-19 | Small to medium |
 | [x] | **Suwayomi sync during library updates** (unreleased) | Unread counts in the library stay current without opening each series. Removes the 1.3.1 trade-off, where read status only syncs when a series is opened or refreshed | Small |
 | [x] | **Suwayomi sync separate from "Update tracking when marked as read"** (unreleased) | Manual marks reach Suwayomi without also updating other trackers, and default settings work properly | Small |
-| [ ] | **Bookmark sync with Suwayomi** | Bookmarks match on both sides, using `isBookmarked` and the same approach as read status | Small |
+| [x] | **Bookmark sync with Suwayomi** (unreleased) | Bookmarks match on both sides, using `isBookmarked` and the same approach as read status | Small |
 | [x] | **Check for new chapters on the server** | Already done by the Suwayomi extension: a refresh asks the server to fetch chapters from the source, while its "Fetch Data From Source" setting is on (the default) | Small to medium |
 | [x] | **Kavita On Deck** (unreleased) | An On Deck button when browsing a Kavita source, listing series partway through on the server | Small to medium |
 | [x] | **Remove from On Deck** (unreleased) | Long-press a series in On Deck to take it off | Small |

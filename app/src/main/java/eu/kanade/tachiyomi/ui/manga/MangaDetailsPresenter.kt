@@ -816,6 +816,9 @@ class MangaDetailsPresenter(
                 it.toProgressUpdate()
             }
             updateChapter.awaitAll(updates)
+            presenterScope.launchNonCancellableIO {
+                Injekt.get<TrackManager>().updateServerChaptersBookmarked(manga, selectedChapters.map { it.chapter }, bookmarked)
+            }
             getChapters()
             withUIContext { view?.updateChapters() }
         }

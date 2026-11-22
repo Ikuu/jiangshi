@@ -507,6 +507,8 @@ class ReaderViewModel(
                     pagesLeft = chapter.pages_left.toLong(),
                 )
             )
+            val manga = manga ?: return@launchNonCancellableIO
+            Injekt.get<TrackManager>().updateServerChaptersBookmarked(manga, listOf(chapter), chapter.bookmark)
         }
     }
 

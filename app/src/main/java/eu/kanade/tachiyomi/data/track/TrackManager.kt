@@ -47,5 +47,10 @@ class TrackManager(context: Context) {
         kavita.updateChaptersRead(manga, chapters, read)
     }
 
+    /** Sends chapters bookmarked or unbookmarked in the app to the Suwayomi server they came from. */
+    suspend fun updateServerChaptersBookmarked(manga: Manga, chapters: List<Chapter>, bookmarked: Boolean) {
+        suwayomi.updateChaptersBookmarked(manga, chapters.map { it.chapter_number }, bookmarked)
+    }
+
     fun hasLoggedServices() = services.any { it.isLogged }
 }

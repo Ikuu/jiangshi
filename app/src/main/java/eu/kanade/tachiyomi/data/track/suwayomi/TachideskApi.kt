@@ -130,6 +130,15 @@ class TachideskApi {
         if (read && updateServerTrackers) graphql<JsonObject>(url, TRACK_PROGRESS_MUTATION, mangaIdVariables(url))
     }
 
+    /** Bookmarks or unbookmarks the server's chapters with these numbers. */
+    suspend fun setChaptersBookmarked(trackUrl: String, chapterNumbers: Set<Float>, bookmarked: Boolean) = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val chapters = mangaChapters(url)
+        val ids = chapters.filter { it.chapterNumber in chapterNumbers && it.isBookmarked != bookmarked }.map { it.id }
+        if (ids.isEmpty()) return@withIOContext
+        graphql<JsonObject>(url, SET_BOOKMARKED_MUTATION, idsVariables(ids) { put("bookmarked", bookmarked) })
+    }
+
     /**
      * IDs of the server's chapters with this number. They're remembered so that page turns don't
      * fetch a long series' whole chapter list each time. The server can't look up a chapter by its
@@ -242,7 +251,7 @@ class TachideskApi {
         """
 
         private fun mangaChaptersQuery(perUser: Boolean): String {
-            val fields = "isRead lastPageRead"
+            val fields = "isRead isBookmarked lastPageRead"
             return """
                 query MangaChapters(${'$'}id: Int!) {
                     manga(id: ${'$'}id) {
@@ -255,6 +264,14 @@ class TachideskApi {
         private const val SET_PAGE_MUTATION = """
             mutation SetPage(${'$'}ids: [Int!]!, ${'$'}page: Int!) {
                 updateChapters(input: { ids: ${'$'}ids, patch: { lastPageRead: ${'$'}page } }) {
+                    chapters { id }
+                }
+            }
+        """
+
+        private const val SET_BOOKMARKED_MUTATION = """
+            mutation SetBookmarked(${'$'}ids: [Int!]!, ${'$'}bookmarked: Boolean!) {
+                updateChapters(input: { ids: ${'$'}ids, patch: { isBookmarked: ${'$'}bookmarked } }) {
                     chapters { id }
                 }
             }

@@ -138,7 +138,49 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         }
     }
 
+    /**
+     * Sends a bookmark added or removed in the app to the server. Like read marks, one that can't be sent is
+     * kept and tried again on the next sync, and the server's bookmark for that chapter is ignored until then.
+     */
+    suspend fun updateChaptersBookmarked(manga: Manga, chapterNumbers: List<Float>, bookmarked: Boolean) {
+        if (!accept(sourceManager.getOrStub(manga.source))) return
+        val mangaId = manga.id ?: return
+        val numbers = chapterNumbers.filter { it >= 0f }.map { it.toString() }
+        if (numbers.isEmpty()) return
+        pendingBookmarks.add(mangaId, numbers, bookmarked)
+        try {
+            api.setChaptersBookmarked(seriesUrl(manga, getTrack.awaitAllByMangaId(mangaId)), numbers.mapTo(mutableSetOf()) { it.toFloat() }, bookmarked)
+            pendingBookmarks.remove(mangaId, numbers, bookmarked)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not update bookmarks on Suwayomi for ${manga.url}, will try again" }
+        }
+    }
+
+    /** Bookmarks still to send, for every series, where [PendingMark.read] says whether it adds the bookmark. */
+    fun allPendingBookmarks(): List<PendingMark> =
+        pendingBookmarks.all().mapNotNull { mark -> mark.chapter.toFloatOrNull()?.let { PendingMark(mark.mangaId, it, mark.read) } }
+
+    suspend fun discardPendingBookmarks(marks: Collection<PendingMark>) =
+        pendingBookmarks.discard(marks.map { PendingReadMarks.Mark(it.mangaId, it.chapterNumber.toString(), it.read) })
+
+    private fun pendingBookmarkNumbers(mangaId: Long): Set<Float> =
+        pendingBookmarks.forManga(mangaId).keys.mapNotNullTo(mutableSetOf()) { it.toFloatOrNull() }
+
+    private suspend fun sendPendingBookmarks(manga: Manga, url: String) {
+        val mangaId = manga.id ?: return
+        pendingBookmarks.forManga(mangaId).entries.groupBy({ it.value }, { it.key }).forEach { (bookmarked, numbers) ->
+            try {
+                api.setChaptersBookmarked(url, numbers.mapNotNullTo(mutableSetOf()) { it.toFloatOrNull() }, bookmarked)
+                pendingBookmarks.remove(mangaId, numbers, bookmarked)
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not send waiting bookmarks to Suwayomi for ${manga.url}" }
+            }
+        }
+    }
+
     private val pending by lazy { PendingReadMarks(preferences.suwayomiPendingMarks()) }
+
+    private val pendingBookmarks by lazy { PendingReadMarks(preferences.suwayomiPendingBookmarks()) }
 
     /** A read mark made in the app that hasn't reached the server yet. */
     data class PendingMark(val mangaId: Long, val chapterNumber: Float, val read: Boolean)
@@ -168,11 +210,13 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         }
     }
 
-    /** Tries to send every waiting mark now, rather than on each series' next sync. */
+    /** Tries to send every waiting mark and bookmark now, rather than on each series' next sync. */
     suspend fun sendAllPendingMarks() {
-        allPendingMarks().map { it.mangaId }.distinct().forEach { mangaId ->
+        (allPendingMarks() + allPendingBookmarks()).map { it.mangaId }.distinct().forEach { mangaId ->
             val manga = getManga.awaitById(mangaId) ?: return@forEach
-            sendPendingMarks(manga, seriesUrl(manga, getTrack.awaitAllByMangaId(mangaId)))
+            val url = seriesUrl(manga, getTrack.awaitAllByMangaId(mangaId))
+            sendPendingMarks(manga, url)
+            sendPendingBookmarks(manga, url)
         }
     }
 
@@ -190,13 +234,18 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
      * The first time a series syncs, chapters read in the app but not on the server are sent to it, since
      * earlier versions only sent marks with "Update tracking when marked as read" on. After that, a chapter
      * unread on the server goes back to unread in the app, unless a tracker update is still waiting to be sent.
+     *
+     * Bookmarks sync the same way: the first time, a chapter bookmarked on either side ends up bookmarked on
+     * both, and after that the server decides, apart from bookmarks still waiting to be sent.
      * Returns whether any chapter changed.
      */
     suspend fun syncChapterProgress(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Boolean {
         val mangaId = manga.id ?: return false
         val url = seriesUrl(manga, tracks)
         sendPendingMarks(manga, url)
+        sendPendingBookmarks(manga, url)
         val stillPending = pendingMarks(mangaId).keys
+        val bookmarksPending = pendingBookmarkNumbers(mangaId)
 
         val remote = try {
             api.getChapterProgress(url)
@@ -226,29 +275,64 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
             .any { it.startsWith("$mangaId:$id:") }
         val serverDecidesUnread = syncedBefore && !hasPendingTrackerUpdates
 
-        val updates = chapters.mapNotNull { chapter ->
-            if (chapter.chapter_number < 0f || chapter.chapter_number in stillPending) return@mapNotNull null
-            val matches = remote[chapter.chapter_number] ?: return@mapNotNull null
-            val furthestPage = matches.maxOf { it.lastPageRead }
-            val pagesLeft = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
-            val isReadOnServer = matches.any { it.isRead }
-            if (chapter.read) {
-                if (isReadOnServer || !serverDecidesUnread) return@mapNotNull null
-                chapter.read = false
-                chapter.last_page_read = furthestPage
-                chapter.pages_left = pagesLeft
-            } else if (isReadOnServer) {
-                chapter.read = true
-            } else if (furthestPage > chapter.last_page_read) {
-                chapter.last_page_read = furthestPage
-                chapter.pages_left = pagesLeft
-            } else {
-                return@mapNotNull null
+        val bookmarksSyncedBefore = mangaId.toString() in preferences.suwayomiBookmarkSyncedSeries().get()
+        if (!bookmarksSyncedBefore) {
+            val bookmarkedOnlyHere = chapters
+                .filter { it.bookmark && it.chapter_number >= 0f && it.chapter_number !in bookmarksPending }
+                .map { it.chapter_number }
+                .filter { number -> remote[number]?.none { it.isBookmarked } == true }
+                .toSet()
+            try {
+                if (bookmarkedOnlyHere.isNotEmpty()) api.setChaptersBookmarked(url, bookmarkedOnlyHere, true)
+                pendingLock.withLock {
+                    preferences.suwayomiBookmarkSyncedSeries()
+                        .set(preferences.suwayomiBookmarkSyncedSeries().get() + mangaId.toString())
+                }
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not send chapters bookmarked in the app to Suwayomi for ${manga.url}" }
             }
-            chapter.toProgressUpdate()
+        }
+
+        val updates = chapters.mapNotNull { chapter ->
+            if (chapter.chapter_number < 0f) return@mapNotNull null
+            val matches = remote[chapter.chapter_number] ?: return@mapNotNull null
+            val readChanged = chapter.chapter_number !in stillPending && syncReadFrom(chapter, matches, serverDecidesUnread)
+            val bookmarkChanged = chapter.chapter_number !in bookmarksPending &&
+                syncBookmarkFrom(chapter, matches, serverDecidesUnbookmark = bookmarksSyncedBefore)
+            if (readChanged || bookmarkChanged) chapter.toProgressUpdate() else null
         }
         if (updates.isEmpty()) return false
         updateChapter.awaitAll(updates)
+        return true
+    }
+
+    /** Applies the server's read status and page to [chapter]. Returns whether it changed. */
+    private fun syncReadFrom(chapter: Chapter, matches: List<ChapterNode>, serverDecidesUnread: Boolean): Boolean {
+        val furthestPage = matches.maxOf { it.lastPageRead }
+        val pagesLeft = (matches.maxOf { it.pageCount } - furthestPage).coerceAtLeast(0)
+        val isReadOnServer = matches.any { it.isRead }
+        if (chapter.read) {
+            if (isReadOnServer || !serverDecidesUnread) return false
+            chapter.read = false
+            chapter.last_page_read = furthestPage
+            chapter.pages_left = pagesLeft
+        } else if (isReadOnServer) {
+            chapter.read = true
+        } else if (furthestPage > chapter.last_page_read) {
+            chapter.last_page_read = furthestPage
+            chapter.pages_left = pagesLeft
+        } else {
+            return false
+        }
+        return true
+    }
+
+    /** Applies the server's bookmark to [chapter]. Returns whether it changed. */
+    private fun syncBookmarkFrom(chapter: Chapter, matches: List<ChapterNode>, serverDecidesUnbookmark: Boolean): Boolean {
+        val isBookmarkedOnServer = matches.any { it.isBookmarked }
+        if (chapter.bookmark == isBookmarkedOnServer) return false
+        if (chapter.bookmark && !serverDecidesUnbookmark) return false
+        chapter.bookmark = isBookmarkedOnServer
         return true
     }
 

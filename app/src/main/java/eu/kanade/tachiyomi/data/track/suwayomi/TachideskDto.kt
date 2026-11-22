@@ -49,16 +49,19 @@ data class ChapterNode(
     val chapterNumber: Float,
     val pageCount: Int,
     @SerialName("isRead") private val ownIsRead: Boolean = false,
+    @SerialName("isBookmarked") private val ownIsBookmarked: Boolean = false,
     @SerialName("lastPageRead") private val ownLastPageRead: Int = 0,
     val user: ChapterUser? = null,
 ) {
     val isRead: Boolean get() = user?.isRead ?: ownIsRead
+    val isBookmarked: Boolean get() = user?.isBookmarked ?: ownIsBookmarked
     val lastPageRead: Int get() = user?.lastPageRead ?: ownLastPageRead
 }
 
 @Serializable
 data class ChapterUser(
     val isRead: Boolean = false,
+    val isBookmarked: Boolean = false,
     val lastPageRead: Int = 0,
 )
 

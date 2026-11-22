@@ -106,34 +106,8 @@ data class ReadingStats(
                 dayOfWeek[start.dayOfWeek.value - 1] += session.duration
             }
 
-            val series = sessions
-                .groupBy { it.mangaSource to it.mangaUrl }
-                .map { (_, seriesSessions) ->
-                    val latest = seriesSessions.maxBy { it.startedAt }
-                    SeriesStats(
-                        mangaSource = latest.mangaSource,
-                        mangaUrl = latest.mangaUrl,
-                        title = latest.mangaTitle,
-                        seriesType = latest.seriesType,
-                        time = seriesSessions.sumOf { it.duration },
-                        finishedChapterUrls = seriesSessions.filter { it.completed }.map { it.chapterUrl }.toSet(),
-                        pagesRead = seriesSessions.sumOf { it.pagesRead },
-                        lastReadAt = latest.endedAt,
-                    )
-                }
-                .sortedWith(compareByDescending<SeriesStats> { it.time }.thenBy { it.title })
-
-            val types = sessions
-                .groupBy { ReadingCategory.of(it.seriesType) }
-                .map { (category, typeSessions) ->
-                    TypeStats(
-                        category = category,
-                        time = typeSessions.sumOf { it.duration },
-                        chaptersFinished = typeSessions.finishedChapters(),
-                        pagesRead = typeSessions.sumOf { it.pagesRead },
-                    )
-                }
-                .sortedByDescending { it.time }
+            val series = seriesStats(sessions)
+            val types = typeStats(sessions)
 
             val (currentStreak, longestStreak) = streaks(readingDays.keys, today)
             val totalTime = sessions.sumOf { it.duration }
@@ -158,6 +132,37 @@ data class ReadingStats(
                 types = types,
             )
         }
+
+        /** Each series read in [sessions], most read first. */
+        internal fun seriesStats(sessions: List<ReadingSession>): List<SeriesStats> = sessions
+            .groupBy { it.mangaSource to it.mangaUrl }
+            .map { (_, seriesSessions) ->
+                val latest = seriesSessions.maxBy { it.startedAt }
+                SeriesStats(
+                    mangaSource = latest.mangaSource,
+                    mangaUrl = latest.mangaUrl,
+                    title = latest.mangaTitle,
+                    seriesType = latest.seriesType,
+                    time = seriesSessions.sumOf { it.duration },
+                    finishedChapterUrls = seriesSessions.filter { it.completed }.map { it.chapterUrl }.toSet(),
+                    pagesRead = seriesSessions.sumOf { it.pagesRead },
+                    lastReadAt = latest.endedAt,
+                )
+            }
+            .sortedWith(compareByDescending<SeriesStats> { it.time }.thenBy { it.title })
+
+        /** The categories read in [sessions], most read first. */
+        internal fun typeStats(sessions: List<ReadingSession>): List<TypeStats> = sessions
+            .groupBy { ReadingCategory.of(it.seriesType) }
+            .map { (category, typeSessions) ->
+                TypeStats(
+                    category = category,
+                    time = typeSessions.sumOf { it.duration },
+                    chaptersFinished = typeSessions.finishedChapters(),
+                    pagesRead = typeSessions.sumOf { it.pagesRead },
+                )
+            }
+            .sortedByDescending { it.time }
 
         /** A chapter finished more than once in the period counts once. */
         internal fun List<ReadingSession>.finishedChapters(): Int =
@@ -196,7 +201,7 @@ data class ReadingStats(
             }
         }
 
-        private fun months(start: LocalDate, today: LocalDate): List<LocalDate> {
+        internal fun months(start: LocalDate, today: LocalDate): List<LocalDate> {
             val first = YearMonth.from(start)
             val count = ChronoUnit.MONTHS.between(first, YearMonth.from(today)).toInt()
             return (0..count).map { first.plusMonths(it.toLong()).atDay(1) }

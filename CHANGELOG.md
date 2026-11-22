@@ -10,6 +10,7 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 - Browsing a Kavita source has a Want to Read button next to On Deck, listing the series on your Want to Read list on the server. Long-press a series there to take it off. Kavita series pages can add a series to Want to Read or remove it from their menu. On phones, the browse buttons other than the selected one show only their icon, so they all fit
 - Statistics can track a reading goal, such as 20 chapters a week or 30 minutes a day, with progress for the current day, week, month or year and whether you're on track
 - Statistics warns when you haven't read yet today and your streak would end
+- A year in review for each year you've read in: time read compared with the year before, chapters, pages, new series, days read, longest streak, busiest month and day, favourite time of day, top series and genres, and comics, manga and webtoons compared
 
 ### Changes
 - Suwayomi tracking and sync read the per-user fields on servers with user accounts, which replace older fields Suwayomi has deprecated, and still work with servers from before user accounts

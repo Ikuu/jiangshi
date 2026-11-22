@@ -19,14 +19,18 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
+import cafe.adriel.voyager.navigator.LocalNavigator
 import yokai.domain.stats.GoalMeasure
 import yokai.domain.stats.GoalPeriod
 import yokai.domain.stats.GoalProgress
@@ -88,6 +92,7 @@ class StatsScreen : Screen() {
     @Composable
     override fun Content() {
         val onBackPress = LocalBackPress.currentOrThrow
+        val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel { StatsScreenModel() }
         val state by screenModel.state.collectAsState()
         val listState = rememberLazyListState()
@@ -113,6 +118,7 @@ class StatsScreen : Screen() {
                     contentPadding = innerPadding,
                     onPeriodChange = screenModel::setPeriod,
                     onGoalChange = screenModel::setGoal,
+                    onOpenYear = { navigator.push(YearInReviewScreen(it)) },
                 )
             }
         }
@@ -126,6 +132,7 @@ private fun StatsContent(
     contentPadding: PaddingValues,
     onPeriodChange: (StatsPeriod) -> Unit,
     onGoalChange: (ReadingGoal?) -> Unit,
+    onOpenYear: (Int) -> Unit,
 ) {
     val context = LocalContext.current
     val router = LocalRouter.current
@@ -162,6 +169,9 @@ private fun StatsContent(
                     val streak = stats.currentStreak
                     Message(pluralStringResource(MR.plurals.stats_streak_at_risk, streak, streak), null)
                 }
+            }
+            state.years.firstOrNull()?.let { year ->
+                item(key = "year_in_review") { YearInReviewCard(year) { onOpenYear(year) } }
             }
 
             item(key = "period") { PeriodSelector(state.period, onPeriodChange) }
@@ -327,6 +337,36 @@ private fun <T> ChoiceRow(options: List<Pair<T, dev.icerock.moko.resources.Strin
 }
 
 @Composable
+private fun YearInReviewCard(year: Int, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(MR.strings.stats_year_in_review, year),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+                Text(
+                    stringResource(MR.strings.stats_year_in_review_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+    }
+}
+
+@Composable
 private fun PeriodSelector(period: StatsPeriod, onPeriodChange: (StatsPeriod) -> Unit) {
     val options = listOf(
         StatsPeriod.WEEK to MR.strings.stats_period_week,
@@ -372,7 +412,7 @@ private fun LazyListScope.overview(stats: ReadingStats, time: (Long) -> String) 
 }
 
 @Composable
-private fun TileRow(first: Pair<String, String>, second: Pair<String, String>) {
+internal fun TileRow(first: Pair<String, String>, second: Pair<String, String>) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         StatTile(first.first, first.second, Modifier.weight(1f))
         StatTile(second.first, second.second, Modifier.weight(1f))
@@ -544,7 +584,7 @@ private fun LazyListScope.seriesSection(
 }
 
 @Composable
-private fun SeriesRow(
+internal fun SeriesRow(
     rank: Int?,
     series: SeriesStats,
     entries: String,
@@ -676,7 +716,7 @@ private fun LazyListScope.librarySection(
 }
 
 @Composable
-private fun SectionHeader(text: String) {
+internal fun SectionHeader(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleMedium,
@@ -686,7 +726,7 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun Card(content: @Composable () -> Unit) {
+internal fun Card(content: @Composable () -> Unit) {
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -697,12 +737,12 @@ private fun Card(content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun CardTitle(text: String) {
+internal fun CardTitle(text: String) {
     Text(text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
 }
 
 @Composable
-private fun Message(title: String, body: String?) {
+internal fun Message(title: String, body: String?) {
     Card {
         Text(title, style = MaterialTheme.typography.titleMedium)
         body?.let {
@@ -731,7 +771,7 @@ private fun Context.entriesRead(state: StatsScreenModel.State.Success, series: S
     return getString(MR.strings.stats_entries_read, count)
 }
 
-private fun categoryName(category: ReadingCategory) = when (category) {
+internal fun categoryName(category: ReadingCategory) = when (category) {
     ReadingCategory.COMIC -> MR.strings.comic
     ReadingCategory.MANGA -> MR.strings.manga
     ReadingCategory.WEBTOON -> MR.strings.webtoon

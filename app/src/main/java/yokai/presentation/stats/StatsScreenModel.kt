@@ -32,6 +32,7 @@ import java.time.temporal.WeekFields
 import yokai.domain.stats.GoalProgress
 import yokai.domain.stats.ReadingCategory
 import yokai.domain.stats.ReadingGoal
+import yokai.domain.stats.YearInReview
 import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingStats
 import yokai.domain.stats.SeriesStats
@@ -180,6 +181,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             goal = ReadingGoal.decode(preferences.readingGoal().get())
                 ?.progress(sessions, now, zone, WeekFields.of(Locale.getDefault()).firstDayOfWeek),
             streakAtRisk = streakAtRisk,
+            years = YearInReview.years(sessions, zone),
             hasAnyReading = sessions.isNotEmpty(),
             mangaByKey = mangaByKey,
             entryKinds = entryKinds,
@@ -255,6 +257,8 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             val goal: GoalProgress?,
             /** There's a streak going, and nothing read yet today to keep it. */
             val streakAtRisk: Boolean,
+            /** Years with any reading, newest first, for the year in review. */
+            val years: List<Int>,
             val hasAnyReading: Boolean,
             val mangaByKey: Map<SeriesKey, Manga>,
             val entryKinds: Map<SeriesKey, EntryKinds>,

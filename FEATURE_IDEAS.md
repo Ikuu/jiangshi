@@ -17,6 +17,7 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 | [x] | **Kavita Want to Read** (unreleased) | A Want to Read button when browsing a Kavita source, and add or remove from the series page | Small to medium |
 | [x] | **Suwayomi server downloads** (unreleased) | Download chapters on the server or remove them from the series page, with each row saying whether the server has it | Medium |
 | [x] | **Reading goals** (unreleased) | A goal for minutes or chapters a day, week, month or year on the Statistics page, with a warning when today's streak is at risk | Small to medium |
+| [x] | **Year in review** (unreleased) | A summary of each year's reading, opened from the Statistics page | Small to medium |
 | [x] | **Check for new chapters on the server** | Already done by the Suwayomi extension: a refresh asks the server to fetch chapters from the source, while its "Fetch Data From Source" setting is on (the default) | Small to medium |
 | [x] | **Kavita On Deck** (unreleased) | An On Deck button when browsing a Kavita source, listing series partway through on the server | Small to medium |
 | [x] | **Remove from On Deck** (unreleased) | Long-press a series in On Deck to take it off | Small |
@@ -27,4 +28,5 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 ## Known follow-ups
 
 - [x] **Deprecated Suwayomi field.** The tracker reads `lastReadChapter`, which Suwayomi has deprecated in favour of `user.lastReadChapter`. Queries now use the `user` fields and fall back to the old ones on servers from before user accounts (unreleased).
+- [ ] **Year in review entry names.** Top series in the year in review count issues for comics and chapters otherwise, where the Statistics page asks Kavita whether entries are volumes. A Kavita series read by volume shows "0 issues read".
 - [ ] **Untested on a device.** Marking chapters read or unread from the library and Recents screens uses the same code as the series screen, but hasn't been tried on a real device.

@@ -62,6 +62,17 @@ SELECT * FROM reading_sessions
 WHERE manga_source = :mangaSource AND manga_url = :mangaUrl
 ORDER BY started_at;
 
+getLatestForChapter:
+SELECT * FROM reading_sessions
+WHERE manga_source = :mangaSource AND manga_url = :mangaUrl AND chapter_url = :chapterUrl
+ORDER BY ended_at DESC
+LIMIT 1;
+
+updateById:
+UPDATE reading_sessions
+SET started_at = :startedAt, ended_at = :endedAt, duration = :duration, pages_read = :pagesRead, completed = :completed
+WHERE _id = :id;
+
 deleteById:
 DELETE FROM reading_sessions
 WHERE _id = :id;

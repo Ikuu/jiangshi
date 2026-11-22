@@ -160,7 +160,7 @@ data class ReadingStats(
         }
 
         /** A chapter finished more than once in the period counts once. */
-        private fun List<ReadingSession>.finishedChapters(): Int =
+        internal fun List<ReadingSession>.finishedChapters(): Int =
             filter { it.completed }.distinctBy { Triple(it.mangaSource, it.mangaUrl, it.chapterUrl) }.size
 
         private fun timeline(

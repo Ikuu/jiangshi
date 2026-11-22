@@ -16,6 +16,7 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 | [x] | **Bookmark sync with Suwayomi** (unreleased) | Bookmarks match on both sides, using `isBookmarked` and the same approach as read status | Small |
 | [x] | **Kavita Want to Read** (unreleased) | A Want to Read button when browsing a Kavita source, and add or remove from the series page | Small to medium |
 | [x] | **Suwayomi server downloads** (unreleased) | Download chapters on the server or remove them from the series page, with each row saying whether the server has it | Medium |
+| [x] | **Reading goals** (unreleased) | A goal for minutes or chapters a day, week, month or year on the Statistics page, with a warning when today's streak is at risk | Small to medium |
 | [x] | **Check for new chapters on the server** | Already done by the Suwayomi extension: a refresh asks the server to fetch chapters from the source, while its "Fetch Data From Source" setting is on (the default) | Small to medium |
 | [x] | **Kavita On Deck** (unreleased) | An On Deck button when browsing a Kavita source, listing series partway through on the server | Small to medium |
 | [x] | **Remove from On Deck** (unreleased) | Long-press a series in On Deck to take it off | Small |

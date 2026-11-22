@@ -180,6 +180,9 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     /** Series whose reads in the app have been sent to Suwayomi once, so the server can decide what's unread */
     fun suwayomiSyncedSeries() = preferenceStore.getStringSet("suwayomi_synced_series", emptySet())
 
+    /** The reading goal on the Statistics page, as ReadingGoal.encode() gives it, or empty for none */
+    fun readingGoal() = preferenceStore.getString("reading_goal", "")
+
     /** Bookmarks for Suwayomi that haven't reached the server yet, as "mangaId:chapterNumber:bookmarked" */
     fun suwayomiPendingBookmarks() = preferenceStore.getStringSet("suwayomi_pending_bookmarks", emptySet())
 

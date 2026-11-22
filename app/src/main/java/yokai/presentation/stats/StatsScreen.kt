@@ -18,7 +18,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
+import yokai.domain.stats.GoalMeasure
+import yokai.domain.stats.GoalPeriod
+import yokai.domain.stats.GoalProgress
+import yokai.domain.stats.ReadingGoal
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -100,6 +112,7 @@ class StatsScreen : Screen() {
                     listState = listState,
                     contentPadding = innerPadding,
                     onPeriodChange = screenModel::setPeriod,
+                    onGoalChange = screenModel::setGoal,
                 )
             }
         }
@@ -112,9 +125,21 @@ private fun StatsContent(
     listState: androidx.compose.foundation.lazy.LazyListState,
     contentPadding: PaddingValues,
     onPeriodChange: (StatsPeriod) -> Unit,
+    onGoalChange: (ReadingGoal?) -> Unit,
 ) {
     val context = LocalContext.current
     val router = LocalRouter.current
+    var editingGoal by remember { mutableStateOf(false) }
+    if (editingGoal) {
+        GoalDialog(
+            current = state.goal?.goal,
+            onDismiss = { editingGoal = false },
+            onSave = {
+                onGoalChange(it)
+                editingGoal = false
+            },
+        )
+    }
     val stats = state.stats
     val time = remember(context) { { ms: Long -> context.formatReadTime(ms) } }
     val openManga: (Manga) -> Unit = { manga ->
@@ -131,6 +156,14 @@ private fun StatsContent(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth().padding(horizontal = 16.dp),
         ) {
+            item(key = "goal") { GoalCard(state.goal, time, onEdit = { editingGoal = true }) }
+            if (state.streakAtRisk) {
+                item(key = "streak_at_risk") {
+                    val streak = stats.currentStreak
+                    Message(pluralStringResource(MR.plurals.stats_streak_at_risk, streak, streak), null)
+                }
+            }
+
             item(key = "period") { PeriodSelector(state.period, onPeriodChange) }
 
             if (!state.hasAnyReading) {
@@ -149,6 +182,146 @@ private fun StatsContent(
             }
 
             state.library?.let { librarySection(it, time, openManga) }
+        }
+    }
+}
+
+@Composable
+private fun GoalCard(progress: GoalProgress?, time: (Long) -> String, onEdit: () -> Unit) {
+    if (progress == null) {
+        Surface(
+            onClick = onEdit,
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text(stringResource(MR.strings.stats_goal_set), style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(MR.strings.stats_goal_set_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        return
+    }
+    val goal = progress.goal
+    val numbers = NumberFormat.getIntegerInstance()
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(goalTitle(goal.period)), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            TextButton(onClick = onEdit) { Text(stringResource(MR.strings.edit)) }
+        }
+        val counts = when (goal.measure) {
+            GoalMeasure.MINUTES -> MR.plurals.stats_goal_minutes_of
+            GoalMeasure.CHAPTERS -> MR.plurals.stats_goal_chapters_of
+        }
+        Text(
+            pluralStringResource(counts, goal.target, numbers.format(progress.done), numbers.format(goal.target)),
+            style = MaterialTheme.typography.titleLarge,
+        )
+        Spacer(Modifier.height(8.dp))
+        Meter(progress.fraction)
+        Spacer(Modifier.height(8.dp))
+        val status = if (progress.isMet) {
+            stringResource(MR.strings.stats_goal_met)
+        } else {
+            val left = when (goal.measure) {
+                GoalMeasure.MINUTES -> time(progress.remaining * 60_000L)
+                GoalMeasure.CHAPTERS -> numbers.format(progress.remaining)
+            }
+            listOfNotNull(
+                stringResource(MR.strings.stats_goal_to_go, left),
+                when {
+                    goal.period == GoalPeriod.DAY -> null
+                    progress.isOnTrack -> stringResource(MR.strings.stats_goal_on_track)
+                    else -> stringResource(MR.strings.stats_goal_behind)
+                },
+            ).joinToString(" · ")
+        }
+        Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private fun goalTitle(period: GoalPeriod) = when (period) {
+    GoalPeriod.DAY -> MR.strings.stats_goal_day
+    GoalPeriod.WEEK -> MR.strings.stats_goal_week
+    GoalPeriod.MONTH -> MR.strings.stats_goal_month
+    GoalPeriod.YEAR -> MR.strings.stats_goal_year
+}
+
+@Composable
+private fun GoalDialog(current: ReadingGoal?, onDismiss: () -> Unit, onSave: (ReadingGoal?) -> Unit) {
+    var period by remember { mutableStateOf(current?.period ?: GoalPeriod.WEEK) }
+    var measure by remember { mutableStateOf(current?.measure ?: GoalMeasure.CHAPTERS) }
+    var target by remember { mutableStateOf(current?.target?.toString() ?: "") }
+    val targetNumber = target.toIntOrNull()?.takeIf { it > 0 }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.stats_goal_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(stringResource(MR.strings.stats_goal_each), style = MaterialTheme.typography.labelLarge)
+                ChoiceRow(
+                    options = listOf(
+                        GoalPeriod.DAY to MR.strings.stats_goal_period_day,
+                        GoalPeriod.WEEK to MR.strings.stats_goal_period_week,
+                        GoalPeriod.MONTH to MR.strings.stats_goal_period_month,
+                        GoalPeriod.YEAR to MR.strings.stats_goal_period_year,
+                    ),
+                    selected = period,
+                    onSelect = { period = it },
+                )
+                Text(stringResource(MR.strings.stats_goal_measure), style = MaterialTheme.typography.labelLarge)
+                ChoiceRow(
+                    options = listOf(
+                        GoalMeasure.MINUTES to MR.strings.stats_goal_minutes,
+                        GoalMeasure.CHAPTERS to MR.strings.stats_goal_chapters,
+                    ),
+                    selected = measure,
+                    onSelect = { measure = it },
+                )
+                OutlinedTextField(
+                    value = target,
+                    onValueChange = { value -> target = value.filter { it.isDigit() }.take(6) },
+                    label = { Text(stringResource(MR.strings.stats_goal_target)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(ReadingGoal(period, measure, targetNumber ?: return@TextButton)) }, enabled = targetNumber != null) {
+                Text(stringResource(MR.strings.save))
+            }
+        },
+        dismissButton = {
+            Row {
+                if (current != null) {
+                    TextButton(onClick = { onSave(null) }) { Text(stringResource(MR.strings.remove)) }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.cancel)) }
+            }
+        },
+    )
+}
+
+@Composable
+private fun <T> ChoiceRow(options: List<Pair<T, dev.icerock.moko.resources.StringResource>>, selected: T, onSelect: (T) -> Unit) {
+    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, (option, label) ->
+            SegmentedButton(
+                selected = option == selected,
+                onClick = { onSelect(option) },
+                shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                icon = {},
+            ) {
+                Text(stringResource(label), maxLines = 1)
+            }
         }
     }
 }

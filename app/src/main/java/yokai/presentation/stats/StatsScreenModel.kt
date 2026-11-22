@@ -27,7 +27,11 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.GetManga
+import eu.kanade.tachiyomi.data.preference.PreferencesHelper
+import java.time.temporal.WeekFields
+import yokai.domain.stats.GoalProgress
 import yokai.domain.stats.ReadingCategory
+import yokai.domain.stats.ReadingGoal
 import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingStats
 import yokai.domain.stats.SeriesStats
@@ -42,6 +46,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private val getChapter: GetChapter by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
     private val trackManager: TrackManager by injectLazy()
+    private val preferences: PreferencesHelper by injectLazy()
 
     private var sessions: List<ReadingSession> = emptyList()
     private var mangaByKey: Map<SeriesKey, Manga> = emptyMap()
@@ -52,6 +57,13 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private var kavitaKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
     private var library: List<LibraryManga> = emptyList()
     private var librarySummary: LibrarySummary? = null
+
+    /** Sets the reading goal, or clears it with null. */
+    fun setGoal(goal: ReadingGoal?) {
+        preferences.readingGoal().set(goal?.encode().orEmpty())
+        val current = state.value as? State.Success ?: return
+        mutableState.update { build(current.period) }
+    }
 
     fun setPeriod(period: StatsPeriod) {
         val current = state.value as? State.Success ?: return
@@ -156,9 +168,18 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
                 ?.forEach { genre -> genres[genre] = (genres[genre] ?: 0L) + series.time }
         }
 
+        val now = Instant.now()
+        val zone = ZoneId.systemDefault()
+        val today = now.atZone(zone).toLocalDate()
+        // The streak carries over from yesterday until today is over, so it's at risk until something's read
+        val streakAtRisk = stats.currentStreak > 0 && today !in stats.readingDays
+
         return State.Success(
             period = period,
             stats = stats,
+            goal = ReadingGoal.decode(preferences.readingGoal().get())
+                ?.progress(sessions, now, zone, WeekFields.of(Locale.getDefault()).firstDayOfWeek),
+            streakAtRisk = streakAtRisk,
             hasAnyReading = sessions.isNotEmpty(),
             mangaByKey = mangaByKey,
             entryKinds = entryKinds,
@@ -230,6 +251,10 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
         data class Success(
             val period: StatsPeriod,
             val stats: ReadingStats,
+            /** The reading goal and how far along it is, or null without one. */
+            val goal: GoalProgress?,
+            /** There's a streak going, and nothing read yet today to keep it. */
+            val streakAtRisk: Boolean,
             val hasAnyReading: Boolean,
             val mangaByKey: Map<SeriesKey, Manga>,
             val entryKinds: Map<SeriesKey, EntryKinds>,

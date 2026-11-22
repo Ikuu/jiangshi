@@ -1,19 +1,31 @@
 package eu.kanade.tachiyomi.data.track.suwayomi
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class TrackedMangaData(val manga: TrackedManga)
 
+/**
+ * Servers with user accounts keep the reader's own counts under [user], and older ones on the series itself,
+ * so only one of the two is filled in.
+ */
 @Serializable
 data class TrackedManga(
     val title: String,
     val description: String?,
     val status: String,
-    val unreadCount: Long,
-    val lastReadChapter: LastReadChapter?,
     val chapters: ChapterCount,
-)
+    val unreadCount: Long? = null,
+    val lastReadChapter: LastReadChapter? = null,
+    val user: TrackedMangaUser? = null,
+) {
+    val unreadChapters: Long get() = user?.unreadCount ?: unreadCount ?: 0L
+    val lastReadChapterNumber: Float? get() = (user?.lastReadChapter ?: lastReadChapter)?.chapterNumber
+}
+
+@Serializable
+data class TrackedMangaUser(val unreadCount: Long? = null, val lastReadChapter: LastReadChapter? = null)
 
 @Serializable
 data class LastReadChapter(val chapterNumber: Float)
@@ -30,13 +42,24 @@ data class MangaChapters(val chapters: ChapterNodes)
 @Serializable
 data class ChapterNodes(val nodes: List<ChapterNode>)
 
+/** Like [TrackedManga], the reader's own state is either under [user] or on the chapter itself. */
 @Serializable
 data class ChapterNode(
     val id: Int,
     val chapterNumber: Float,
-    val isRead: Boolean,
-    val lastPageRead: Int,
     val pageCount: Int,
+    @SerialName("isRead") private val ownIsRead: Boolean = false,
+    @SerialName("lastPageRead") private val ownLastPageRead: Int = 0,
+    val user: ChapterUser? = null,
+) {
+    val isRead: Boolean get() = user?.isRead ?: ownIsRead
+    val lastPageRead: Int get() = user?.lastPageRead ?: ownLastPageRead
+}
+
+@Serializable
+data class ChapterUser(
+    val isRead: Boolean = false,
+    val lastPageRead: Int = 0,
 )
 
 @Serializable

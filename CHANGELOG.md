@@ -4,6 +4,9 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Changes
+- Suwayomi tracking and sync read the per-user fields on servers with user accounts, which replace older fields Suwayomi has deprecated, and still work with servers from before user accounts
+
 ## [1.6.0] - 2026-11-19
 
 ### Additions

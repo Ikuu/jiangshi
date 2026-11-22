@@ -23,5 +23,5 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 
 ## Known follow-ups
 
-- [ ] **Deprecated Suwayomi field.** The tracker reads `lastReadChapter`, which Suwayomi has deprecated in favour of `user.lastReadChapter`. It's kept so older servers still work, but a later server update could remove it.
+- [x] **Deprecated Suwayomi field.** The tracker reads `lastReadChapter`, which Suwayomi has deprecated in favour of `user.lastReadChapter`. Queries now use the `user` fields and fall back to the old ones on servers from before user accounts (unreleased).
 - [ ] **Untested on a device.** Marking chapters read or unread from the library and Recents screens uses the same code as the series screen, but hasn't been tried on a real device.

@@ -25,6 +25,12 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import uy.kohesive.injekt.injectLazy
 
+/** Errors a GraphQL request came back with. */
+class GraphQLException(val messages: List<String>) : IllegalStateException(messages.firstOrNull() ?: "GraphQL request failed") {
+    /** The server doesn't have this field, such as one added in a later version. */
+    fun isUndefinedField(field: String) = messages.any { "FieldUndefined" in it && "'$field'" in it }
+}
+
 class TachideskApi {
     private val json: Json by injectLazy()
     private val sourceManager: SourceManager by injectLazy()
@@ -42,7 +48,7 @@ class TachideskApi {
     suspend fun getTrackSearch(trackUrl: String): TrackSearch = withIOContext {
         val url = resolveMangaUrl(trackUrl)
 
-        val manga = graphql<TrackedMangaData>(url, TRACKED_MANGA_QUERY, mangaIdVariables(url)).manga
+        val manga = graphqlPerUser<TrackedMangaData>(url, ::trackedMangaQuery, mangaIdVariables(url)).manga
 
         TrackSearch.create(TrackManager.SUWAYOMI).apply {
             title = manga.title
@@ -51,8 +57,8 @@ class TachideskApi {
             tracking_url = url
             total_chapters = manga.chapters.totalCount
             publishing_status = manga.status
-            last_chapter_read = manga.lastReadChapter?.chapterNumber ?: 0F
-            status = when (manga.unreadCount) {
+            last_chapter_read = manga.lastReadChapterNumber ?: 0F
+            status = when (manga.unreadChapters) {
                 manga.chapters.totalCount -> Suwayomi.UNREAD
                 0L -> Suwayomi.COMPLETED
                 else -> Suwayomi.READING
@@ -62,7 +68,7 @@ class TachideskApi {
 
     suspend fun updateProgress(track: Track): Track {
         val url = track.tracking_url
-        val chapters = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+        val chapters = mangaChapters(url)
         // Chapters with an unknown number are -1, so they aren't "before" the one just read
         val unreadIds = chapters
             .filter { !it.isRead && it.chapterNumber in 0f..track.last_chapter_read }
@@ -96,7 +102,7 @@ class TachideskApi {
 
     suspend fun getChapterProgress(trackUrl: String): List<ChapterNode> = withIOContext {
         val url = resolveMangaUrl(trackUrl)
-        graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+        mangaChapters(url)
     }
 
     suspend fun setPageProgress(trackUrl: String, chapterNumber: Float, page: Int) = withIOContext {
@@ -115,7 +121,7 @@ class TachideskApi {
         updateServerTrackers: Boolean,
     ) = withIOContext {
         val url = resolveMangaUrl(trackUrl)
-        val chapters = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+        val chapters = mangaChapters(url)
         val ids = chapters.filter { it.chapterNumber in chapterNumbers && it.isRead != read }.map { it.id }
         if (ids.isEmpty()) return@withIOContext
 
@@ -131,11 +137,14 @@ class TachideskApi {
      */
     private suspend fun chapterIds(url: String, chapterNumber: Float): List<Int> {
         chapterIdCache[url]?.get(chapterNumber)?.let { return it }
-        val ids = graphql<MangaChaptersData>(url, MANGA_CHAPTERS_QUERY, mangaIdVariables(url)).manga.chapters.nodes
+        val ids = mangaChapters(url)
             .groupBy({ it.chapterNumber }, { it.id })
         chapterIdCache[url] = ids
         return ids[chapterNumber].orEmpty()
     }
+
+    private suspend fun mangaChapters(url: String): List<ChapterNode> =
+        graphqlPerUser<MangaChaptersData>(url, ::mangaChaptersQuery, mangaIdVariables(url)).manga.chapters.nodes
 
     /** Series are identified by either their numeric ID or their full API URL. */
     private fun resolveMangaUrl(trackUrl: String): String =
@@ -150,6 +159,31 @@ class TachideskApi {
         extra()
     }
 
+    /**
+     * Whether the server keeps read status and the like per user, under `user`. Servers from before user
+     * accounts only have the older fields, and newer ones have deprecated those, so whichever works is
+     * remembered. Null until a query has found out.
+     */
+    @Volatile
+    private var perUserFields: Boolean? = null
+
+    /** Runs a query written both ways, as [perUserFields] says, finding out which the server takes the first time. */
+    private suspend inline fun <reified T> graphqlPerUser(
+        mangaUrl: String,
+        query: (perUser: Boolean) -> String,
+        variables: JsonObject,
+    ): T {
+        if (perUserFields != false) {
+            try {
+                return graphql<T>(mangaUrl, query(true), variables).also { perUserFields = true }
+            } catch (e: GraphQLException) {
+                if (!e.isUndefinedField("user")) throw e
+                perUserFields = false
+            }
+        }
+        return graphql(mangaUrl, query(false), variables)
+    }
+
     /** Tracking URLs keep their REST form, so links made by earlier versions still work. */
     private suspend inline fun <reified T> graphql(mangaUrl: String, query: String, variables: JsonObject): T {
         val body = buildJsonObject {
@@ -161,8 +195,8 @@ class TachideskApi {
         val response = extension.client.newCall(POST(endpoint, extension.headers, body)).awaitSuccess().parseAs<JsonObject>()
 
         // GraphQL reports failures with a 200 response
-        (response["errors"] as? JsonArray)?.firstOrNull()?.let { error ->
-            throw IllegalStateException(error.jsonObject["message"]?.jsonPrimitive?.content ?: "GraphQL request failed")
+        (response["errors"] as? JsonArray)?.takeIf { it.isNotEmpty() }?.let { errors ->
+            throw GraphQLException(errors.mapNotNull { it.jsonObject["message"]?.jsonPrimitive?.content })
         }
         return json.decodeFromJsonElement(response.getValue("data"))
     }
@@ -170,18 +204,20 @@ class TachideskApi {
     companion object {
         const val SOURCE_CLASS = "eu.kanade.tachiyomi.extension.all.tachidesk.Tachidesk"
 
-        private const val TRACKED_MANGA_QUERY = """
-            query TrackedManga(${'$'}id: Int!) {
-                manga(id: ${'$'}id) {
-                    title
-                    description
-                    status
-                    unreadCount
-                    lastReadChapter { chapterNumber }
-                    chapters { totalCount }
+        private fun trackedMangaQuery(perUser: Boolean): String {
+            val fields = "unreadCount lastReadChapter { chapterNumber }"
+            return """
+                query TrackedManga(${'$'}id: Int!) {
+                    manga(id: ${'$'}id) {
+                        title
+                        description
+                        status
+                        ${if (perUser) "user { $fields }" else fields}
+                        chapters { totalCount }
+                    }
                 }
-            }
-        """
+            """
+        }
 
         private const val SERVER_TRACKERS_QUERY = """
             query ServerTrackers(${'$'}id: Int!) {
@@ -205,13 +241,16 @@ class TachideskApi {
             }
         """
 
-        private const val MANGA_CHAPTERS_QUERY = """
-            query MangaChapters(${'$'}id: Int!) {
-                manga(id: ${'$'}id) {
-                    chapters { nodes { id chapterNumber isRead lastPageRead pageCount } }
+        private fun mangaChaptersQuery(perUser: Boolean): String {
+            val fields = "isRead lastPageRead"
+            return """
+                query MangaChapters(${'$'}id: Int!) {
+                    manga(id: ${'$'}id) {
+                        chapters { nodes { id chapterNumber pageCount ${if (perUser) "user { $fields }" else fields} } }
+                    }
                 }
-            }
-        """
+            """
+        }
 
         private const val SET_PAGE_MUTATION = """
             mutation SetPage(${'$'}ids: [Int!]!, ${'$'}page: Int!) {

@@ -178,6 +178,18 @@ class Suwayomi(private val context: Context, id: Long) : TrackService(id), Enhan
         }
     }
 
+    /** Chapters downloaded on the server or waiting in its queue, by chapter number. */
+    suspend fun serverDownloads(manga: Manga, tracks: List<Track>): Map<Float, ServerDownload> =
+        api.getServerDownloads(seriesUrl(manga, tracks))
+
+    /** Asks the server to download these chapters. Returns how many it queued. */
+    suspend fun downloadOnServer(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Int =
+        api.downloadOnServer(seriesUrl(manga, tracks), chapters.map { it.chapter_number }.filter { it >= 0f }.toSet())
+
+    /** Removes these chapters' downloads from the server. Returns how many it removed. */
+    suspend fun removeFromServer(manga: Manga, chapters: List<Chapter>, tracks: List<Track>): Int =
+        api.removeFromServer(seriesUrl(manga, tracks), chapters.map { it.chapter_number }.filter { it >= 0f }.toSet())
+
     private val pending by lazy { PendingReadMarks(preferences.suwayomiPendingMarks()) }
 
     private val pendingBookmarks by lazy { PendingReadMarks(preferences.suwayomiPendingBookmarks()) }

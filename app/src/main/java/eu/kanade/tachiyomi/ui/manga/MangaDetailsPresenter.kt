@@ -40,6 +40,7 @@ import eu.kanade.tachiyomi.data.track.kavita.KavitaChapterInfo
 import eu.kanade.tachiyomi.data.track.kavita.KavitaEntryType
 import eu.kanade.tachiyomi.data.track.kavita.KavitaLibraryTypes
 import eu.kanade.tachiyomi.data.track.kavita.KavitaSeriesLayout
+import eu.kanade.tachiyomi.data.track.suwayomi.ServerDownload
 import eu.kanade.tachiyomi.data.track.suwayomi.Suwayomi
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.network.HttpException
@@ -88,6 +89,9 @@ import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
+import eu.kanade.tachiyomi.util.view.snack
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.catch
@@ -322,6 +326,7 @@ class MangaDetailsPresenter(
             fetchKavitaLayout()
             fetchSuwayomiProgress()
             fetchSuwayomiServerTrackers()
+            fetchServerDownloads()
         }
 
         refreshTracking(false)
@@ -386,6 +391,78 @@ class MangaDetailsPresenter(
         if (!suwayomi.syncChapterProgress(manga, allChapters, tracks)) return
         getChapters()
         withUIContext { view?.updateChapters() }
+    }
+
+    /** Chapters downloaded on the Suwayomi server or waiting in its queue, by chapter number. */
+    private var serverDownloads: Map<Float, ServerDownload> = emptyMap()
+    private var serverDownloadsJob: Job? = null
+
+    val isSuwayomiSource: Boolean get() = Injekt.get<TrackManager>().suwayomi.accept(source)
+
+    /** The chapter's download on the Suwayomi server, or null if the server's downloads aren't known. */
+    fun serverDownload(chapter: Chapter): ServerDownload? = serverDownloads[chapter.chapter_number]
+
+    /**
+     * Gets the chapters downloaded on the Suwayomi server, and checks again every few seconds while any
+     * are still waiting there, so the rows follow its progress.
+     */
+    private fun fetchServerDownloads() {
+        if (!isSuwayomiSource) return
+        val suwayomi = Injekt.get<TrackManager>().suwayomi
+        serverDownloadsJob?.cancel()
+        serverDownloadsJob = presenterScope.launchIO {
+            // The server takes a finished chapter off its queue a moment before it counts as downloaded,
+            // so chapters that were queued are followed for a few more checks until they show up
+            var lastQueued = emptySet<Float>()
+            var settleChecks = 0
+            repeat(SERVER_DOWNLOAD_CHECKS) {
+                val downloads = try {
+                    suwayomi.serverDownloads(manga, tracks)
+                } catch (e: Exception) {
+                    Logger.w(e) { "Could not get the downloads on Suwayomi for ${manga.url}" }
+                    return@launchIO
+                }
+                if (downloads != serverDownloads) {
+                    serverDownloads = downloads
+                    withUIContext { view?.updateChapters() }
+                }
+                val queued = downloads.filterValues { it.isQueued }.keys
+                val settling = lastQueued.any { number -> downloads[number]?.let { !it.isQueued && !it.isDownloaded && !it.hasError } == true }
+                if (queued.isEmpty() && (!settling || settleChecks++ >= SERVER_DOWNLOAD_SETTLE_CHECKS)) return@launchIO
+                if (queued.isNotEmpty()) lastQueued = queued
+                delay(if (queued.isEmpty()) SERVER_DOWNLOAD_SETTLE_INTERVAL else SERVER_DOWNLOAD_CHECK_INTERVAL)
+            }
+        }
+    }
+
+    /** Asks the Suwayomi server to download these chapters, and says how it went. */
+    fun downloadOnServer(chapters: List<ChapterItem>) = serverDownloadAction { suwayomi ->
+        val count = suwayomi.downloadOnServer(manga, chapters.map { it.chapter }, tracks)
+        if (count == 0) {
+            view?.view?.context?.getString(MR.strings.server_already_has_chapters)
+        } else {
+            view?.view?.context?.getString(MR.plurals.downloading_on_server, count, count)
+        }
+    }
+
+    /** Removes these chapters' downloads from the Suwayomi server, and says how it went. */
+    fun removeFromServer(chapters: List<ChapterItem>) = serverDownloadAction { suwayomi ->
+        val count = suwayomi.removeFromServer(manga, chapters.map { it.chapter }, tracks)
+        view?.view?.context?.getString(MR.plurals.removed_from_server, count, count)
+    }
+
+    private fun serverDownloadAction(action: suspend (Suwayomi) -> String?) {
+        val suwayomi = Injekt.get<TrackManager>().suwayomi
+        presenterScope.launchIO {
+            val message = try {
+                action(suwayomi)
+            } catch (e: Exception) {
+                Logger.w(e) { "Could not change the downloads on Suwayomi for ${manga.url}" }
+                view?.view?.context?.getString(MR.strings.could_not_reach_suwayomi)
+            }
+            withUIContext { message?.let { view?.view?.snack(it) } }
+            fetchServerDownloads()
+        }
     }
 
     private fun kavitaInfo(chapter: Chapter): KavitaChapterInfo? {
@@ -789,6 +866,7 @@ class MangaDetailsPresenter(
             fetchKavitaLayout()
             fetchSuwayomiProgress()
             fetchSuwayomiServerTrackers()
+            fetchServerDownloads()
         }
     }
 
@@ -1426,6 +1504,12 @@ class MangaDetailsPresenter(
         const val MULTIPLE_VOLUMES = 1
         const val TENS_OF_CHAPTERS = 2
         const val MULTIPLE_SEASONS = 3
+
+        /** Following the server's queue for up to 20 minutes is plenty for a few chapters. */
+        private const val SERVER_DOWNLOAD_CHECKS = 240
+        private val SERVER_DOWNLOAD_CHECK_INTERVAL = 5.seconds
+        private const val SERVER_DOWNLOAD_SETTLE_CHECKS = 3
+        private val SERVER_DOWNLOAD_SETTLE_INTERVAL = 2.seconds
 
         private val numberRegex = Regex("""[0-9]+(\.[0-9]+)?""")
         private val numberFormat = DecimalFormat("#.###", DecimalFormatSymbols().apply { decimalSeparator = '.' })

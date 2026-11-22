@@ -70,6 +70,20 @@
         </menu>
     </item>
     <item
+        android:id="@+id/action_server_downloads"
+        android:title="@string/server_downloads"
+        android:visible="false"
+        app:showAsAction="never">
+        <menu>
+            <item
+                android:id="@+id/server_download_unread"
+                android:title="@string/unread_chapters_to_server" />
+            <item
+                android:id="@+id/server_remove_read"
+                android:title="@string/read_chapters_from_server" />
+        </menu>
+    </item>
+    <item
         android:id="@+id/action_edit"
         android:icon="@drawable/ic_edit_24dp"
         android:title="@string/edit"

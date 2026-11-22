@@ -143,6 +143,16 @@
         <item quantity="other">%d updates couldn\'t be sent and are still waiting</item>
     </plurals>
 
+    <plurals name="downloading_on_server">
+        <item quantity="one">Downloading %d chapter on the server</item>
+        <item quantity="other">Downloading %d chapters on the server</item>
+    </plurals>
+
+    <plurals name="removed_from_server">
+        <item quantity="one">Removed %d chapter from the server</item>
+        <item quantity="other">Removed %d chapters from the server</item>
+    </plurals>
+
     <plurals name="after_minutes">
         <item quantity="one">After %1$s minute</item>
         <item quantity="other">After %1$s minutes</item>

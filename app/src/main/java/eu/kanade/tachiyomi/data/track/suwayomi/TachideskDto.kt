@@ -51,11 +51,13 @@ data class ChapterNode(
     @SerialName("isRead") private val ownIsRead: Boolean = false,
     @SerialName("isBookmarked") private val ownIsBookmarked: Boolean = false,
     @SerialName("lastPageRead") private val ownLastPageRead: Int = 0,
+    @SerialName("isDownloaded") private val ownIsDownloaded: Boolean = false,
     val user: ChapterUser? = null,
 ) {
     val isRead: Boolean get() = user?.isRead ?: ownIsRead
     val isBookmarked: Boolean get() = user?.isBookmarked ?: ownIsBookmarked
     val lastPageRead: Int get() = user?.lastPageRead ?: ownLastPageRead
+    val isDownloaded: Boolean get() = user?.isDownloaded ?: ownIsDownloaded
 }
 
 @Serializable
@@ -63,6 +65,29 @@ data class ChapterUser(
     val isRead: Boolean = false,
     val isBookmarked: Boolean = false,
     val lastPageRead: Int = 0,
+    val isDownloaded: Boolean = false,
+)
+
+@Serializable
+data class DownloadStatusData(val downloadStatus: DownloadQueue)
+
+@Serializable
+data class DownloadQueue(val queue: List<QueuedDownload>)
+
+@Serializable
+data class QueuedDownload(val chapter: QueuedChapter, val state: String, val progress: Float = 0f)
+
+@Serializable
+data class QueuedChapter(val id: Int)
+
+/** A chapter's download on the Suwayomi server. */
+data class ServerDownload(
+    val isDownloaded: Boolean,
+    /** Waiting in the server's download queue, or downloading now. */
+    val isQueued: Boolean,
+    /** From 0 to 1, while downloading. */
+    val progress: Float,
+    val hasError: Boolean,
 )
 
 @Serializable

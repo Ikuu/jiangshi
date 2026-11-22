@@ -78,6 +78,18 @@ class ChapterHolder(
             statuses.add(scanlator)
         }
 
+        adapter.presenter.serverDownload(chapter)?.let { download ->
+            val context = itemView.context
+            when {
+                download.hasError -> context.getString(MR.strings.server_download_failed)
+                download.isQueued && download.progress > 0f ->
+                    context.getString(MR.strings.downloading_on_server_progress, (download.progress * 100).toInt())
+                download.isQueued -> context.getString(MR.strings.queued_on_server)
+                download.isDownloaded -> context.getString(MR.strings.on_server)
+                else -> null
+            }?.let(statuses::add)
+        }
+
         if (binding.frontView.translationX == 0f) {
             binding.read.setImageResource(
                 if (item.read) R.drawable.ic_eye_off_24dp else R.drawable.ic_eye_24dp,

@@ -1031,6 +1031,13 @@ class MangaDetailsController :
                 ),
             )
         }
+        presenter.serverDownload(item.chapter)?.let { download ->
+            if (!download.isDownloaded && !download.isQueued) {
+                items.add(MaterialMenuSheet.MenuSheetItem(5, R.drawable.ic_cloud_24dp, MR.strings.download_on_server))
+            } else {
+                items.add(MaterialMenuSheet.MenuSheetItem(6, R.drawable.ic_delete_24dp, MR.strings.remove_from_server))
+            }
+        }
         val lastRead = presenter.allHistory.find { it.chapter_id == item.id }?.let {
             activity?.timeSpanFromNow(MR.strings.read_, it.last_read) + "\n"
         }
@@ -1042,6 +1049,8 @@ class MangaDetailsController :
                     2 -> startReadRange(position, RangeMode.Read)
                     3 -> startReadRange(position, RangeMode.Unread)
                     4 -> openChapterInWebView(item)
+                    5 -> presenter.downloadOnServer(listOf(item))
+                    6 -> presenter.removeFromServer(listOf(item))
                 }
                 true
             }
@@ -1066,12 +1075,23 @@ class MangaDetailsController :
         if (downloaded.isNotEmpty()) {
             items.add(MaterialMenuSheet.MenuSheetItem(3, R.drawable.ic_delete_24dp, MR.strings.remove_downloads))
         }
+        val serverDownloads = chapters.mapNotNull { chapter -> presenter.serverDownload(chapter.chapter)?.let { chapter to it } }
+        val notOnServer = serverDownloads.filter { (_, download) -> !download.isDownloaded && !download.isQueued }.map { it.first }
+        val onServer = serverDownloads.filter { (_, download) -> download.isDownloaded || download.isQueued }.map { it.first }
+        if (notOnServer.isNotEmpty()) {
+            items.add(MaterialMenuSheet.MenuSheetItem(4, R.drawable.ic_cloud_24dp, MR.strings.download_on_server))
+        }
+        if (onServer.isNotEmpty()) {
+            items.add(MaterialMenuSheet.MenuSheetItem(5, R.drawable.ic_delete_24dp, MR.strings.remove_from_server))
+        }
         MaterialMenuSheet(activity, items, header.name(activity)) { _, itemPos ->
             when (itemPos) {
                 0 -> downloadChapters(notDownloaded)
                 1 -> markAsRead(chapters)
                 2 -> markAsUnread(chapters)
                 3 -> massDeleteChapters(downloaded, false)
+                4 -> presenter.downloadOnServer(notOnServer)
+                5 -> presenter.removeFromServer(onServer)
             }
             if (itemPos == 1 || itemPos == 2) presenter.fetchChapters(false)
             true
@@ -1269,6 +1289,7 @@ class MangaDetailsController :
             presenter.hasBookmark() && !presenter.isLockedFromSearch
         menu.findItem(R.id.action_migrate)?.isVisible = !presenter.isLockedFromSearch &&
             !presenter.manga.isLocal() && presenter.manga.favorite
+        menu.findItem(R.id.action_server_downloads)?.isVisible = !presenter.isLockedFromSearch && presenter.isSuwayomiSource
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1312,6 +1333,8 @@ class MangaDetailsController :
             R.id.download_next, R.id.download_next_5, R.id.download_custom, R.id.download_unread, R.id.download_all -> downloadChapters(
                 item.itemId,
             )
+            R.id.server_download_unread -> presenter.downloadOnServer(presenter.chapters.filter { !it.read })
+            R.id.server_remove_read -> presenter.removeFromServer(presenter.allChapters.filter { it.read })
             else -> return super.onOptionsItemSelected(item)
         }
         return true

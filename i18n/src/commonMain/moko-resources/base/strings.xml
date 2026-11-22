@@ -1082,11 +1082,26 @@
     <string name="series_stats_first_read">first read %1$s</string>
     <string name="series_stats_last_read">last read %1$s</string>
 
-    <!-- Updates waiting to reach a tracker or server -->
+    <!-- Suwayomi server downloads -->
+    <string name="server_downloads">Server downloads</string>
+    <string name="download_on_server">Download on server</string>
+    <string name="remove_from_server">Remove from server</string>
+    <string name="unread_chapters_to_server">Download unread chapters</string>
+    <string name="read_chapters_from_server">Remove read chapters</string>
+    <string name="on_server">On server</string>
+    <string name="queued_on_server">Queued on server</string>
+    <string name="downloading_on_server_progress">Downloading on server, %1$d%%</string>
+    <string name="server_download_failed">Server download failed</string>
+    <string name="server_already_has_chapters">The server already has these chapters</string>
+    <string name="could_not_reach_suwayomi">Couldn\'t reach the Suwayomi server</string>
+
+    <!-- Kavita lists -->
     <string name="on_deck">On Deck</string>
     <string name="remove_from_on_deck">Remove from On Deck</string>
     <string name="removed_from_on_deck">Removed from On Deck</string>
     <string name="could_not_remove_from_on_deck">Couldn\'t remove it from On Deck</string>
+
+    <!-- Updates waiting to reach a tracker or server -->
     <string name="pending_updates">Waiting to send</string>
     <string name="pending_updates_info">These are sent automatically once the tracker or server can be reached. Tick any that will never go through, such as for a tracker you\'ve logged out of, to discard them.</string>
     <string name="pending_tracker_update">%1$s: %2$s, chapter %3$s</string>

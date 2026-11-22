@@ -152,6 +152,51 @@ class TachideskApi {
         return ids[chapterNumber].orEmpty()
     }
 
+    /**
+     * Each chapter on the server, with whether it's downloaded there or waiting in the server's queue, by
+     * chapter number. Several chapters can share a number, such as from different scanlators, so a number
+     * counts as downloaded if any of them is.
+     */
+    suspend fun getServerDownloads(trackUrl: String): Map<Float, ServerDownload> = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val chapters = mangaChapters(url)
+        val queue = graphql<DownloadStatusData>(url, DOWNLOAD_QUEUE_QUERY, buildJsonObject { }).downloadStatus.queue
+            .associateBy { it.chapter.id }
+        chapters.filter { it.chapterNumber >= 0f }.groupBy { it.chapterNumber }.mapValues { (_, matches) ->
+            val queued = matches.mapNotNull { queue[it.id] }.filter { it.state != DOWNLOAD_FINISHED }
+            ServerDownload(
+                isDownloaded = matches.any { it.isDownloaded },
+                isQueued = queued.isNotEmpty(),
+                progress = queued.maxOfOrNull { it.progress } ?: 0f,
+                hasError = queued.any { it.state == DOWNLOAD_ERROR },
+            )
+        }
+    }
+
+    /** Asks the server to download its chapters with these numbers that it doesn't have yet. Returns how many it queued. */
+    suspend fun downloadOnServer(trackUrl: String, chapterNumbers: Set<Float>): Int = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val ids = mangaChapters(url).filter { it.chapterNumber in chapterNumbers && !it.isDownloaded }.map { it.id }
+        if (ids.isNotEmpty()) graphql<JsonObject>(url, ENQUEUE_DOWNLOADS_MUTATION, idsVariables(ids))
+        ids.size
+    }
+
+    /**
+     * Removes the server's downloads of these chapters, and takes any still waiting off its queue.
+     * Returns how many chapters it removed or took off.
+     */
+    suspend fun removeFromServer(trackUrl: String, chapterNumbers: Set<Float>): Int = withIOContext {
+        val url = resolveMangaUrl(trackUrl)
+        val chapters = mangaChapters(url).filter { it.chapterNumber in chapterNumbers }
+        val downloaded = chapters.filter { it.isDownloaded }.map { it.id }
+        val queued = graphql<DownloadStatusData>(url, DOWNLOAD_QUEUE_QUERY, buildJsonObject { }).downloadStatus.queue
+            .map { it.chapter.id }.toSet()
+        val waiting = chapters.map { it.id }.filter { it in queued && it !in downloaded }
+        if (waiting.isNotEmpty()) graphql<JsonObject>(url, DEQUEUE_DOWNLOADS_MUTATION, idsVariables(waiting))
+        if (downloaded.isNotEmpty()) graphql<JsonObject>(url, DELETE_DOWNLOADS_MUTATION, idsVariables(downloaded))
+        downloaded.size + waiting.size
+    }
+
     private suspend fun mangaChapters(url: String): List<ChapterNode> =
         graphqlPerUser<MangaChaptersData>(url, ::mangaChaptersQuery, mangaIdVariables(url)).manga.chapters.nodes
 
@@ -213,6 +258,9 @@ class TachideskApi {
     companion object {
         const val SOURCE_CLASS = "eu.kanade.tachiyomi.extension.all.tachidesk.Tachidesk"
 
+        private const val DOWNLOAD_FINISHED = "FINISHED"
+        private const val DOWNLOAD_ERROR = "ERROR"
+
         private fun trackedMangaQuery(perUser: Boolean): String {
             val fields = "unreadCount lastReadChapter { chapterNumber }"
             return """
@@ -251,7 +299,7 @@ class TachideskApi {
         """
 
         private fun mangaChaptersQuery(perUser: Boolean): String {
-            val fields = "isRead isBookmarked lastPageRead"
+            val fields = "isRead isBookmarked lastPageRead isDownloaded"
             return """
                 query MangaChapters(${'$'}id: Int!) {
                     manga(id: ${'$'}id) {
@@ -260,6 +308,36 @@ class TachideskApi {
                 }
             """
         }
+
+        private const val DOWNLOAD_QUEUE_QUERY = """
+            query DownloadQueue {
+                downloadStatus { queue { chapter { id } state progress } }
+            }
+        """
+
+        private const val ENQUEUE_DOWNLOADS_MUTATION = """
+            mutation EnqueueDownloads(${'$'}ids: [Int!]!) {
+                enqueueChapterDownloads(input: { ids: ${'$'}ids }) {
+                    downloadStatus { state }
+                }
+            }
+        """
+
+        private const val DEQUEUE_DOWNLOADS_MUTATION = """
+            mutation DequeueDownloads(${'$'}ids: [Int!]!) {
+                dequeueChapterDownloads(input: { ids: ${'$'}ids }) {
+                    downloadStatus { state }
+                }
+            }
+        """
+
+        private const val DELETE_DOWNLOADS_MUTATION = """
+            mutation DeleteDownloads(${'$'}ids: [Int!]!) {
+                deleteDownloadedChapters(input: { ids: ${'$'}ids }) {
+                    chapters { id }
+                }
+            }
+        """
 
         private const val SET_PAGE_MUTATION = """
             mutation SetPage(${'$'}ids: [Int!]!, ${'$'}page: Int!) {

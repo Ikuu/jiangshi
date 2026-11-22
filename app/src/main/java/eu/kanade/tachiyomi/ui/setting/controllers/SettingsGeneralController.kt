@@ -34,6 +34,11 @@ import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.systemLangContext
 import yokai.domain.base.BasePreferences
 import java.util.*
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import eu.kanade.tachiyomi.data.preference.changesIn
+import eu.kanade.tachiyomi.data.stats.StreakReminderJob
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
 class SettingsGeneralController : SettingsLegacyController() {
@@ -102,6 +107,30 @@ class SettingsGeneralController : SettingsLegacyController() {
                     startActivity(intent)
                 }
             }
+        }
+
+        preferenceCategory {
+            titleRes = MR.strings.reading_reminder
+
+            switchPreference {
+                bindTo(preferences.streakReminder())
+                titleRes = MR.strings.streak_reminder
+                summaryRes = MR.strings.streak_reminder_summary
+            }
+
+            intListPreference(activity) {
+                bindTo(preferences.streakReminderHour())
+                titleRes = MR.strings.streak_reminder_time
+                val hours = (17..23).toList()
+                val timeFormat = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+                entryValues = hours
+                entries = hours.map { timeFormat.format(LocalTime.of(it, 0)) }
+                visibleIf(preferences.streakReminder()) { it }
+            }
+
+            // Either change moves or cancels the scheduled reminder
+            preferences.streakReminder().changesIn(viewScope) { StreakReminderJob.setupTask(context) }
+            preferences.streakReminderHour().changesIn(viewScope) { StreakReminderJob.setupTask(context) }
         }
 
         preferenceCategory {

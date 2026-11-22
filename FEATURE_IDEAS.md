@@ -23,7 +23,7 @@ Ideas from the Suwayomi and Kavita sync work, in suggested order. Added 2026-11-
 | [ ] | **Kavita ratings** | The score in the Kavita tracking sheet is saved on the server | Small |
 | [ ] | **Kavita collections and reading lists** | Browse a collection or reading list from the Kavita source, in its own order | Medium |
 | [ ] | **Suwayomi categories** | Series take on their categories from the server | Medium |
-| [ ] | **Streak reminder notification** | A notification in the evening when the streak would end, rather than only a note on the Statistics page | Small |
+| [x] | **Streak reminder notification** (unreleased) | A notification in the evening when the streak would end, rather than only a note on the Statistics page | Small |
 | [x] | **Check for new chapters on the server** | Already done by the Suwayomi extension: a refresh asks the server to fetch chapters from the source, while its "Fetch Data From Source" setting is on (the default) | Small to medium |
 | [x] | **Kavita On Deck** (unreleased) | An On Deck button when browsing a Kavita source, listing series partway through on the server | Small to medium |
 | [x] | **Remove from On Deck** (unreleased) | Long-press a series in On Deck to take it off | Small |

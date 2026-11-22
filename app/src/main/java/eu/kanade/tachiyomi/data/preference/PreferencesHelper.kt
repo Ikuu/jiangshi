@@ -180,6 +180,12 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     /** Series whose reads in the app have been sent to Suwayomi once, so the server can decide what's unread */
     fun suwayomiSyncedSeries() = preferenceStore.getStringSet("suwayomi_synced_series", emptySet())
 
+    /** Whether to send a reminder in the evening when a reading streak would end that night */
+    fun streakReminder() = preferenceStore.getBoolean("streak_reminder", false)
+
+    /** The hour of the day, 0 to 23, to send the streak reminder */
+    fun streakReminderHour() = preferenceStore.getInt("streak_reminder_hour", 20)
+
     /** The reading goal on the Statistics page, as ReadingGoal.encode() gives it, or empty for none */
     fun readingGoal() = preferenceStore.getString("reading_goal", "")
 

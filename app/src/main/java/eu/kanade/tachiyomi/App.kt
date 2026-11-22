@@ -46,6 +46,7 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.data.stats.StreakReminderJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.NetworkPreferences
@@ -140,6 +141,9 @@ open class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.F
         scope.launchIO {
             with(TachiyomiWidgetManager()) { this@App.init() }
         }
+
+        // Works out the next reminder again, in case the clock or time zone changed while the app was closed
+        scope.launchIO { StreakReminderJob.setupTask(this@App) }
 
         // Show notification to disable Incognito Mode when it's enabled
         preferences.incognitoMode().changes()

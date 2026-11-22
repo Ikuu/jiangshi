@@ -1098,6 +1098,12 @@
     <string name="stats_goal_minutes">Minutes</string>
     <string name="stats_goal_chapters">Chapters</string>
     <string name="stats_goal_target">Target</string>
+    <string name="reading_reminder">Reading reminder</string>
+    <string name="reading_reminders">Reading reminders</string>
+    <string name="streak_reminder">Streak reminder</string>
+    <string name="streak_reminder_summary">A notification in the evening if you have a reading streak going and haven\'t read yet that day</string>
+    <string name="streak_reminder_time">Remind me at</string>
+    <string name="streak_reminder_body">You haven\'t read today. Read a little before midnight to keep it going.</string>
     <string name="stats_year_in_review">%1$d in review</string>
     <string name="stats_year_in_review_body">The year\'s reading at a glance</string>
     <string name="year_review_days_read">Days read</string>

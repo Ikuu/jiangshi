@@ -1108,6 +1108,10 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
                     controller?.showSheet()
                 }
             }
+            SHORTCUT_STATS -> {
+                if (router.backstack.isEmpty()) nav.selectedItemId = R.id.nav_library
+                if (router.backstack.lastOrNull()?.controller !is StatsController) showStats()
+            }
             Intent.ACTION_VIEW -> {
                 if (router.backstack.isEmpty()) nav.selectedItemId = R.id.nav_library
                 if (intent.scheme == "tachiyomi" && intent.data?.host == "add-repo") {
@@ -1616,6 +1620,7 @@ open class MainActivity : BaseActivity<MainActivityBinding>() {
         const val SHORTCUT_SOURCE = "eu.kanade.tachiyomi.SHOW_SOURCE"
         const val SHORTCUT_READER_SETTINGS = "eu.kanade.tachiyomi.READER_SETTINGS"
         const val SHORTCUT_EXTENSIONS = "eu.kanade.tachiyomi.EXTENSIONS"
+        const val SHORTCUT_STATS = "eu.kanade.tachiyomi.SHOW_STATS"
 
         const val INTENT_SEARCH = "eu.kanade.tachiyomi.SEARCH"
         const val INTENT_SEARCH_QUERY = "query"

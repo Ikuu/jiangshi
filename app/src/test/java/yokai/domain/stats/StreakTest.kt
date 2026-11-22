@@ -1,0 +1,44 @@
+package yokai.domain.stats
+
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+
+class StreakTest {
+    private val zone = ZoneOffset.UTC
+
+    // Wednesday 2026-11-18, 20:00
+    private val now = LocalDateTime.of(2026, 11, 18, 20, 0).toInstant(ZoneOffset.UTC)
+
+    private fun readOn(vararg days: Int) = days.map { testSession(LocalDateTime.of(2026, 11, it, 21, 0), 10) }
+
+    @Test
+    fun `tiers grow with the streak`() {
+        assertNull(StreakTier.of(0))
+        assertEquals(StreakTier.SPARK, StreakTier.of(1))
+        assertEquals(StreakTier.SPARK, StreakTier.of(2))
+        assertEquals(StreakTier.FLAME, StreakTier.of(3))
+        assertEquals(StreakTier.BLAZE, StreakTier.of(7))
+        assertEquals(StreakTier.INFERNO, StreakTier.of(29))
+        assertEquals(StreakTier.GEM, StreakTier.of(30))
+        assertEquals(StreakTier.CROWN, StreakTier.of(365))
+    }
+
+    @Test
+    fun `a streak up to yesterday is at risk until today's reading`() {
+        assertEquals(3, Streak.atRisk(readOn(15, 16, 17), now, zone))
+    }
+
+    @Test
+    fun `reading today means nothing is at risk`() {
+        assertNull(Streak.atRisk(readOn(16, 17, 18), now, zone))
+    }
+
+    @Test
+    fun `no streak means nothing is at risk`() {
+        assertNull(Streak.atRisk(readOn(14, 15), now, zone))
+        assertNull(Streak.atRisk(emptyList(), now, zone))
+    }
+}

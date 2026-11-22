@@ -35,6 +35,7 @@ import yokai.domain.stats.GoalMeasure
 import yokai.domain.stats.GoalPeriod
 import yokai.domain.stats.GoalProgress
 import yokai.domain.stats.ReadingGoal
+import yokai.domain.stats.StreakTier
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -167,7 +168,8 @@ private fun StatsContent(
             if (state.streakAtRisk) {
                 item(key = "streak_at_risk") {
                     val streak = stats.currentStreak
-                    Message(pluralStringResource(MR.plurals.stats_streak_at_risk, streak, streak), null)
+                    val emoji = StreakTier.of(streak)?.emoji?.let { "$it " }.orEmpty()
+                    Message(emoji + pluralStringResource(MR.plurals.stats_streak_at_risk, streak, streak), null)
                 }
             }
             state.years.firstOrNull()?.let { year ->
@@ -403,7 +405,8 @@ private fun LazyListScope.overview(stats: ReadingStats, time: (Long) -> String) 
             )
             TileRow(
                 stringResource(MR.strings.stats_current_streak) to
-                    pluralStringResource(MR.plurals.stats_days, stats.currentStreak, stats.currentStreak),
+                    pluralStringResource(MR.plurals.stats_days, stats.currentStreak, stats.currentStreak) +
+                    StreakTier.of(stats.currentStreak)?.emoji?.let { " $it" }.orEmpty(),
                 stringResource(MR.strings.stats_longest_streak) to
                     pluralStringResource(MR.plurals.stats_days, stats.longestStreak, stats.longestStreak),
             )

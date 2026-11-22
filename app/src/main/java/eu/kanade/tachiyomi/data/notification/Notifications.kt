@@ -91,6 +91,12 @@ object Notifications {
     const val CHANNEL_INCOGNITO_MODE = "incognito_mode_channel"
     const val ID_INCOGNITO_MODE = -701
 
+    /**
+     * Notification channel used for reading reminders
+     */
+    const val CHANNEL_REMINDERS = "reading_reminders_channel"
+    const val ID_STREAK_REMINDER = -801
+
     private val deprecatedChannels = listOf(
         "backup_restore_channel",
         "library_channel",
@@ -192,6 +198,11 @@ object Notifications {
                 CHANNEL_CRASH_LOGS,
                 context.getString(MR.strings.crash_logs),
                 NotificationManager.IMPORTANCE_HIGH,
+            ),
+            NotificationChannel(
+                CHANNEL_REMINDERS,
+                context.getString(MR.strings.reading_reminders),
+                NotificationManager.IMPORTANCE_DEFAULT,
             ),
             NotificationChannel(
                 CHANNEL_INCOGNITO_MODE,

@@ -158,6 +158,11 @@
         <item quantity="other">Read today to keep your %d day streak going</item>
     </plurals>
 
+    <plurals name="streak_reminder_title">
+        <item quantity="one">%1$s Your %2$d day streak ends tonight</item>
+        <item quantity="other">%1$s Your %2$d day streak ends tonight</item>
+    </plurals>
+
     <plurals name="reading_history_finished">
         <item quantity="one">%d finished</item>
         <item quantity="other">%d finished</item>

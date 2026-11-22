@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.data.stats.StreakReminderJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
@@ -818,6 +819,8 @@ class ReaderViewModel(
         viewModelScope.launchNonCancellableIO {
             try {
                 insertReadingSession.await(session)
+                // Today's reading keeps the streak going, so the reminder no longer applies
+                StreakReminderJob.dismiss(Injekt.get<Application>())
             } catch (e: Exception) {
                 Logger.e(e) { "Unable to save reading session" }
             }

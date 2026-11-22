@@ -1134,6 +1134,7 @@
     <string name="stats_calendar_show_less">Show less</string>
     <string name="stats_day_no_sessions">Nothing read this day</string>
     <string name="stats_session_when">%1$s · %2$s</string>
+    <string name="stats_session_finished">Finished the chapter</string>
     <string name="stats_delete_session">Delete session</string>
     <string name="stats_delete_session_title">Delete this session?</string>
     <string name="stats_delete_session_body">%1$s reading %2$s is taken out of Statistics for good.</string>
@@ -1167,7 +1168,11 @@
     <!-- Series linked across Kavita and Suwayomi -->
     <string name="linked_series">Linked series</string>
     <string name="link_with_server_series">Link with the same series on %1$s</string>
-    <string name="link_series_none">There\'s no series from %1$s in your library to link with. Add the same series from %1$s to your library first.</string>
+    <string name="link_series_none">Nothing on %1$s or in your library matches “%2$s”. Search for the name it has on %1$s.</string>
+    <string name="link_series_searching">Searching %1$s…</string>
+    <string name="link_series_search_title">Search %1$s</string>
+    <string name="link_series_in_library">%1$s · In library</string>
+    <string name="link_series_on_server">%1$s · On %2$s</string>
     <string name="link_series_confirm_title">Link with %1$s?</string>
     <string name="link_series_confirm_body">Chapters marked read or unread in either series are marked the same in the other, matched by chapter number, and sent on to its server. Whole volumes and specials are left out. Linking now marks chapters read in either series read in both, here and on the servers.</string>
     <string name="linked_series_info">Linked with %1$s on %2$s. Chapters marked read or unread in either are marked the same in the other, matched by chapter number.</string>

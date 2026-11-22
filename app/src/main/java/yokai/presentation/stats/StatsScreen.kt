@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.items
@@ -54,6 +56,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -167,6 +170,11 @@ private fun StatsContent(
             date = day,
             sessions = daySessions,
             chapterName = chapterName,
+            mangaFor = { state.mangaByKey[StatsScreenModel.SeriesKey(it.mangaSource, it.mangaUrl)] },
+            onOpen = { manga ->
+                openDay = null
+                router?.pushController(MangaDetailsController(manga).withFadeTransaction())
+            },
             onDelete = onDeleteSession,
             onDismiss = { openDay = null },
         )
@@ -355,21 +363,24 @@ private fun GoalDialog(current: ReadingGoal?, onDismiss: () -> Unit, onSave: (Re
     )
 }
 
-/** A day's reading sessions, each of which can be deleted, such as one from a reader left open. */
+/**
+ * A day's reading sessions, each with the series' cover, and the chapter, when, how long and how many pages.
+ * Tapping one opens its series, if it's still in the app, and each can be deleted, such as one from a reader
+ * left open.
+ */
 @Composable
 private fun DaySessionsDialog(
     date: LocalDate,
     sessions: List<ReadingSession>,
     chapterName: (ReadingSession) -> String?,
+    mangaFor: (ReadingSession) -> Manga?,
+    onOpen: (Manga) -> Unit,
     onDelete: (ReadingSession) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
-    val zone = remember { ZoneId.systemDefault() }
     val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(Locale.getDefault()) }
-    val timeFormat = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()) }
     var deleting by remember { mutableStateOf<ReadingSession?>(null) }
-    val chapterNumberFormat = remember { java.text.DecimalFormat("#.###") }
 
     deleting?.let { session ->
         AlertDialog(
@@ -397,37 +408,103 @@ private fun DaySessionsDialog(
             if (sessions.isEmpty()) {
                 Text(stringResource(MR.strings.stats_day_no_sessions))
             } else {
-                LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 480.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     items(sessions, key = { it.id ?: it.startedAt }) { session ->
-                        val started = Instant.ofEpochMilli(session.startedAt).atZone(zone)
-                        // The number is only a fallback for series no longer in the app, as volumes don't always have a real one
-                        val chapter = chapterName(session) ?: session.chapterNumber.takeIf { it > 0 }?.let { number ->
-                            stringResource(MR.strings.chapter_, chapterNumberFormat.format(number))
-                        }
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                                Text(
-                                    stringResource(MR.strings.stats_session_when, timeFormat.format(started), context.formatReadTime(session.duration)),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                )
-                                Text(
-                                    listOfNotNull(session.mangaTitle, chapter).joinToString(" · "),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            IconButton(onClick = { deleting = session }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = stringResource(MR.strings.stats_delete_session))
-                            }
-                        }
+                        SessionRow(
+                            session = session,
+                            manga = mangaFor(session),
+                            chapterName = chapterName(session),
+                            onOpen = onOpen,
+                            onDelete = { deleting = session },
+                        )
                     }
                 }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.close)) } },
     )
+}
+
+@Composable
+private fun SessionRow(
+    session: ReadingSession,
+    manga: Manga?,
+    chapterName: String?,
+    onOpen: (Manga) -> Unit,
+    onDelete: () -> Unit,
+) {
+    val context = LocalContext.current
+    val zone = remember { ZoneId.systemDefault() }
+    val timeFormat = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()) }
+    val chapterNumberFormat = remember { java.text.DecimalFormat("#.###") }
+    val started = Instant.ofEpochMilli(session.startedAt).atZone(zone)
+    // The number is only a fallback for series no longer in the app, as volumes don't always have a real one
+    val chapter = chapterName ?: session.chapterNumber.takeIf { it > 0 }?.let { number ->
+        stringResource(MR.strings.chapter_, chapterNumberFormat.format(number))
+    }
+    val details = listOfNotNull(
+        stringResource(MR.strings.stats_session_when, timeFormat.format(started), context.formatReadTime(session.duration)),
+        session.pagesRead.takeIf { it > 0 }?.let { pluralStringResource(MR.plurals.pages_plural, it, it) },
+    ).joinToString(" · ")
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .then(if (manga != null) Modifier.clickable { onOpen(manga) } else Modifier)
+            .padding(vertical = 6.dp, horizontal = 4.dp),
+    ) {
+        MangaCover(
+            data = manga,
+            ratio = MangaCoverRatio.BOOK,
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.width(48.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                session.mangaTitle,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            chapter?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    details,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (session.completed) {
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = stringResource(MR.strings.stats_session_finished),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Outlined.Delete, contentDescription = stringResource(MR.strings.stats_delete_session))
+        }
+    }
 }
 
 @Composable

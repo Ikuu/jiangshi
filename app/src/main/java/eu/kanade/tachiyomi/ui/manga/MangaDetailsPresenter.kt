@@ -33,6 +33,7 @@ import eu.kanade.tachiyomi.data.library.CustomMangaManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.data.track.EnhancedTrackService
+import eu.kanade.tachiyomi.data.track.LinkedSeries
 import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.data.track.TrackService
 import eu.kanade.tachiyomi.data.track.kavita.KavitaApi
@@ -109,8 +110,6 @@ import uy.kohesive.injekt.injectLazy
 import yokai.domain.category.interactor.GetCategories
 import yokai.domain.chapter.interactor.GetAvailableScanlators
 import yokai.domain.chapter.interactor.GetChapter
-import yokai.domain.manga.interactor.GetLibraryManga
-import yokai.util.normalizedLevenshteinSimilarity
 import yokai.domain.chapter.interactor.UpdateChapter
 import yokai.domain.history.interactor.GetHistory
 import yokai.domain.stats.ReadingCategory
@@ -290,7 +289,7 @@ class MangaDetailsPresenter(
 
     /** Whether this series can be linked with the same series on the other of Kavita and Suwayomi. */
     val canLinkSeries: Boolean
-        get() = manga.favorite && Injekt.get<TrackManager>().linkedSeries.canLink(manga)
+        get() = Injekt.get<TrackManager>().linkedSeries.canLink(manga)
 
     /** The name of the server a linked series would come from: Suwayomi for a Kavita series, and the other way round. */
     fun otherServerName(context: Context): String {
@@ -303,21 +302,19 @@ class MangaDetailsPresenter(
     suspend fun linkedSeries(): Manga? =
         Injekt.get<TrackManager>().linkedSeries.linkedTo(manga.id!!)?.let { getManga.awaitById(it) }
 
-    /** Series in the library from the other server, closest titles first, that this one could be linked with. */
-    suspend fun linkCandidates(): List<Manga> {
-        val linkedSeries = Injekt.get<TrackManager>().linkedSeries
-        val title = manga.title.lowercase()
-        return Injekt.get<GetLibraryManga>().await()
-            .map { it.manga }
-            .distinctBy { it.id }
-            .filter { linkedSeries.canLinkTogether(manga, it) }
-            .sortedByDescending { normalizedLevenshteinSimilarity(it.title.lowercase(), title) }
-    }
+    /**
+     * Series that this one could be linked with, closest titles first: ones from the other server in the
+     * library, and ones found searching that server for [query].
+     */
+    suspend fun linkCandidates(query: String = manga.title): List<LinkedSeries.Candidate> =
+        Injekt.get<TrackManager>().linkedSeries.candidates(manga, query)
 
-    /** Links this series with [other], bringing the chapters read in either into both. */
-    fun linkSeries(other: Manga) {
+    /** Links this series with [candidate], bringing the chapters read in either into both. */
+    fun linkSeries(candidate: LinkedSeries.Candidate) {
         presenterScope.launchIO {
-            val marked = Injekt.get<TrackManager>().linkedSeries.link(manga, other)
+            val linkedSeries = Injekt.get<TrackManager>().linkedSeries
+            val other = linkedSeries.seriesFor(candidate)
+            val marked = linkedSeries.link(manga, other)
             getChapters()
             withUIContext {
                 view?.updateChapters()

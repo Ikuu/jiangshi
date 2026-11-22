@@ -11,6 +11,7 @@ import android.app.Activity
 import android.app.PendingIntent
 import android.content.ClipData
 import android.content.Context
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -74,6 +75,7 @@ import eu.kanade.tachiyomi.data.database.models.vibrantCoverColor
 import eu.kanade.tachiyomi.data.download.DownloadJob
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
+import eu.kanade.tachiyomi.data.track.LinkedSeries
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.databinding.MangaDetailsControllerBinding
 import eu.kanade.tachiyomi.domain.manga.models.Manga
@@ -124,6 +126,7 @@ import eu.kanade.tachiyomi.util.system.isTablet
 import eu.kanade.tachiyomi.util.system.launchIO
 import eu.kanade.tachiyomi.util.system.launchUI
 import eu.kanade.tachiyomi.util.system.materialAlertDialog
+import eu.kanade.tachiyomi.util.system.setTextInput
 import eu.kanade.tachiyomi.util.system.rootWindowInsetsCompat
 import eu.kanade.tachiyomi.util.system.setCustomTitleAndMessage
 import eu.kanade.tachiyomi.util.system.timeSpanFromNow
@@ -1119,30 +1122,66 @@ class MangaDetailsController :
                     .show()
                 return@launchUI
             }
-            val candidates = withIOContext { presenter.linkCandidates() }
+            showLinkCandidates(presenter.manga.title, server)
+        }
+    }
+
+    /**
+     * Lists series from [server] to link with, ones in the library and ones found searching it for [query],
+     * with a way to search again for a different title.
+     */
+    private fun showLinkCandidates(query: String, server: String) {
+        val activity = activity ?: return
+        viewScope.launchUI {
+            view?.snack(activity.getString(MR.strings.link_series_searching, server))
+            val candidates = withIOContext { presenter.linkCandidates(query) }
+            val searchAgain = DialogInterface.OnClickListener { _, _ -> askLinkSearch(query, server) }
             if (candidates.isEmpty()) {
                 activity.materialAlertDialog()
                     .setTitle(activity.getString(MR.strings.link_with_server_series, server))
-                    .setMessage(activity.getString(MR.strings.link_series_none, server))
-                    .setPositiveButton(MR.strings.close, null)
+                    .setMessage(activity.getString(MR.strings.link_series_none, server, query))
+                    .setPositiveButton(MR.strings.search, searchAgain)
+                    .setNegativeButton(MR.strings.close, null)
                     .show()
                 return@launchUI
             }
+            val titles = candidates.map {
+                if (it.inLibrary) {
+                    activity.getString(MR.strings.link_series_in_library, it.title)
+                } else {
+                    activity.getString(MR.strings.link_series_on_server, it.title, server)
+                }
+            }
             activity.materialAlertDialog()
                 .setTitle(activity.getString(MR.strings.link_with_server_series, server))
-                .setItems(candidates.map { it.title }.toTypedArray()) { _, which -> confirmLink(candidates[which], server) }
+                .setItems(titles.toTypedArray()) { _, which -> confirmLink(candidates[which], server) }
+                .setNeutralButton(MR.strings.search, searchAgain)
                 .setNegativeButton(MR.strings.cancel, null)
                 .show()
         }
     }
 
+    /** Asks for a title to search [server] for, for when the series goes by another name there. */
+    private fun askLinkSearch(query: String, server: String) {
+        val activity = activity ?: return
+        var text = query
+        activity.materialAlertDialog()
+            .setTitle(activity.getString(MR.strings.link_series_search_title, server))
+            .setTextInput(prefill = query) { text = it }
+            .setPositiveButton(MR.strings.search) { _, _ ->
+                text.trim().takeIf { it.isNotEmpty() }?.let { showLinkCandidates(it, server) }
+            }
+            .setNegativeButton(MR.strings.cancel, null)
+            .show()
+    }
+
     /** Linking marks chapters read on both servers, so it's checked first. */
-    private fun confirmLink(other: Manga, server: String) {
+    private fun confirmLink(candidate: LinkedSeries.Candidate, server: String) {
         val activity = activity ?: return
         activity.materialAlertDialog()
-            .setTitle(activity.getString(MR.strings.link_series_confirm_title, other.title))
+            .setTitle(activity.getString(MR.strings.link_series_confirm_title, candidate.title))
             .setMessage(activity.getString(MR.strings.link_series_confirm_body, server))
-            .setPositiveButton(MR.strings.link) { _, _ -> presenter.linkSeries(other) }
+            .setPositiveButton(MR.strings.link) { _, _ -> presenter.linkSeries(candidate) }
             .setNegativeButton(MR.strings.cancel, null)
             .show()
     }

@@ -2,22 +2,36 @@ package eu.kanade.tachiyomi.data.track
 
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.Chapter
+import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
 import eu.kanade.tachiyomi.domain.manga.models.Manga
+import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
+import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
 import yokai.domain.chapter.interactor.UpdateChapter
+import yokai.domain.manga.interactor.GetLibraryManga
 import yokai.domain.manga.interactor.GetManga
+import yokai.domain.manga.interactor.InsertManga
+import yokai.util.normalizedLevenshteinSimilarity
 
 /**
  * Pairs of series that are the same series on Kavita and on Suwayomi, such as volumes on one and newer
  * chapters on the other. Chapters marked read or unread in one are marked the same in the other, matching
  * them by chapter number, and the change is sent on to the other's server. Whole volumes and specials
  * have numbers of their own, so they're left out.
+ *
+ * Either series can be linked without being in the library: it only needs to be in the database, which
+ * clearing the database leaves alone while it's linked. Its chapters aren't kept up to date by library
+ * updates, so they're fetched from its server when linking, and again when a chapter to mark isn't there.
  *
  * Links are kept as "mangaId:mangaId" in [PreferencesHelper.linkedSeries].
  */
@@ -26,7 +40,12 @@ class LinkedSeries(private val trackManager: TrackManager) {
     private val getManga: GetManga by injectLazy()
     private val getChapter: GetChapter by injectLazy()
     private val updateChapter: UpdateChapter by injectLazy()
+    private val insertManga: InsertManga by injectLazy()
+    private val getLibraryManga: GetLibraryManga by injectLazy()
     private val lock = Mutex()
+
+    /** When each linked series last had its chapters fetched for a missing chapter, so it isn't done every mark. */
+    private val lastRefreshed = mutableMapOf<Long, Long>()
 
     private fun links(): Map<Long, Long> = preferences.linkedSeries().get()
         .mapNotNull { entry ->
@@ -38,6 +57,9 @@ class LinkedSeries(private val trackManager: TrackManager) {
 
     /** The ID of the series [mangaId] is linked with, if any. */
     fun linkedTo(mangaId: Long): Long? = links()[mangaId]
+
+    /** Every series in a link, which clearing the database has to keep. */
+    fun linkedIds(): Set<Long> = links().keys
 
     /** Whether [manga] comes from one of the servers series can be linked across. */
     fun canLink(manga: Manga): Boolean = serverOf(manga) != null
@@ -54,6 +76,72 @@ class LinkedSeries(private val trackManager: TrackManager) {
         return listOf(trackManager.kavita, trackManager.suwayomi).find { it.accept(source) }
     }
 
+    /** A series on the other server that could be linked with: one in the library, or one found on the server. */
+    class Candidate(val title: String, val inLibrary: Boolean, internal val sourceId: Long, internal val sManga: SManga)
+
+    /**
+     * Series from the other server to [manga]'s that it could be linked with, closest titles first: ones found
+     * searching that server for [query], and ones in the library whose titles match it. A server that can't be
+     * searched is skipped, so matching library ones still show.
+     */
+    suspend fun candidates(manga: Manga, query: String = manga.title): List<Candidate> = coroutineScope {
+        val server = serverOf(manga) ?: return@coroutineScope emptyList()
+        val other = listOf(trackManager.kavita, trackManager.suwayomi).first { it != server }
+        val inLibrary = getLibraryManga.await()
+            .map { it.manga }
+            .distinctBy { it.id }
+            .filter { canLinkTogether(manga, it) }
+        val libraryKeys = inLibrary.map { it.source to it.url }.toSet()
+        val library = inLibrary
+            .filter { titleMatches(it.title, query) }
+            .map { Candidate(it.title, true, it.source, it) }
+        // A series found on the server that's in the library too is shown as in the library
+        val found = trackManager.sourceManager.getCatalogueSources()
+            .filter { other.accept(it) }
+            .map { source -> async { search(source, query) } }
+            .awaitAll()
+            .flatten()
+            .map { if ((it.sourceId to it.sManga.url) in libraryKeys) Candidate(it.title, true, it.sourceId, it.sManga) else it }
+        val title = query.lowercase()
+        (library + found)
+            .distinctBy { it.sourceId to it.sManga.url }
+            .sortedByDescending { normalizedLevenshteinSimilarity(it.title.lowercase(), title) }
+    }
+
+    private suspend fun search(source: CatalogueSource, query: String): List<Candidate> = try {
+        source.getSearchManga(1, query, source.getFilterList()).mangas.map { Candidate(it.title, false, source.id, it) }
+    } catch (e: Exception) {
+        Logger.w(e) { "Could not search ${source.name} for series to link with" }
+        emptyList()
+    }
+
+    /** The series in the database for [candidate], adding it if it isn't there yet. It isn't added to the library. */
+    suspend fun seriesFor(candidate: Candidate): Manga {
+        (candidate.sManga as? Manga)?.takeIf { it.id != null }?.let { return it }
+        getManga.awaitByUrlAndSource(candidate.sManga.url, candidate.sourceId)?.let { return it }
+        val manga = Manga.create(candidate.sManga.url, candidate.sManga.title, candidate.sourceId)
+        manga.copyFrom(candidate.sManga)
+        manga.id = insertManga.await(manga)
+        return manga
+    }
+
+    /** Fetches [manga]'s chapters from its server, which a series outside the library doesn't get from library updates. */
+    private suspend fun refreshChapters(manga: Manga) {
+        val mangaId = manga.id ?: return
+        val source = trackManager.sourceManager.get(manga.source) ?: return
+        try {
+            val chapters = source.getMangaUpdate(
+                manga = manga.copy(),
+                chapters = getChapter.awaitAll(mangaId, false),
+                fetchDetails = false,
+                fetchChapters = true,
+            ).chapters
+            if (chapters.isNotEmpty()) syncChaptersWithSource(chapters, manga, source)
+        } catch (e: Exception) {
+            Logger.w(e) { "Could not fetch the chapters of ${manga.url}, linked with another series" }
+        }
+    }
+
     /**
      * Links two series, replacing any links either had, and brings them into step: a chapter read in
      * either ends up read in both. Returns how many chapters that marked read.
@@ -67,6 +155,7 @@ class LinkedSeries(private val trackManager: TrackManager) {
             }
             preferences.linkedSeries().set(kept.toSet() + "$mangaId:$otherId")
         }
+        refreshChapters(other)
         val readHere = getChapter.awaitAll(mangaId, false).filter { it.read }
         val readThere = getChapter.awaitAll(otherId, false).filter { it.read }
         return copyMarks(manga, readHere, other, true).size + copyMarks(other, readThere, manga, true).size
@@ -98,8 +187,12 @@ class LinkedSeries(private val trackManager: TrackManager) {
         val otherId = other.id ?: return emptyList()
         val numbers = matchable(chapters).map { it.chapter_number }.toSet()
         if (numbers.isEmpty()) return emptyList()
-        val changed = matchable(getChapter.awaitAll(otherId, false))
-            .filter { it.chapter_number in numbers && it.read != read }
+        var theirs = matchable(getChapter.awaitAll(otherId, false))
+        if (!numbers.all { number -> theirs.any { it.chapter_number == number } } && shouldRefresh(otherId)) {
+            refreshChapters(other)
+            theirs = matchable(getChapter.awaitAll(otherId, false))
+        }
+        val changed = theirs.filter { it.chapter_number in numbers && it.read != read }
         if (changed.isEmpty()) return emptyList()
         changed.forEach { chapter ->
             chapter.read = read
@@ -115,7 +208,36 @@ class LinkedSeries(private val trackManager: TrackManager) {
         return changed
     }
 
+    /**
+     * Whether [mangaId]'s chapters can be fetched again for a missing chapter. Often the other server doesn't
+     * have it at all, such as a newer chapter than its last volume, so this is held to once an hour.
+     */
+    private fun shouldRefresh(mangaId: Long): Boolean = synchronized(lastRefreshed) {
+        val now = System.currentTimeMillis()
+        if (now - (lastRefreshed[mangaId] ?: 0L) < REFRESH_INTERVAL) return false
+        lastRefreshed[mangaId] = now
+        true
+    }
+
     companion object {
+        private const val REFRESH_INTERVAL = 60 * 60 * 1000L
+        private const val MIN_TITLE_SIMILARITY = 0.6
+
+        private val notWord = Regex("[^\\p{L}\\p{N}]+")
+
+        private fun normalize(title: String) = title.lowercase().replace(notWord, " ").trim()
+
+        /**
+         * Whether a library series called [title] matches what was searched for, so only those are offered
+         * alongside the server's results: one title contains the other, or they're close, allowing for typos.
+         */
+        internal fun titleMatches(title: String, query: String): Boolean {
+            val a = normalize(title)
+            val b = normalize(query)
+            if (a.isEmpty() || b.isEmpty()) return false
+            return a.contains(b) || b.contains(a) || normalizedLevenshteinSimilarity(a, b) >= MIN_TITLE_SIMILARITY
+        }
+
         /** Chapters that can be matched by number: not whole volumes or specials, and with a number. */
         internal fun matchable(chapters: List<Chapter>): List<Chapter> = chapters.filter { chapter ->
             chapter.chapter_number >= 0f && ChapterUtil.entryKind(chapter).let { it != EntryKind.Volume && it != EntryKind.Special }

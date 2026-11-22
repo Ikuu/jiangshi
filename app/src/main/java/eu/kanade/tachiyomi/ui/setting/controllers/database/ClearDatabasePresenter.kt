@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.ui.setting.controllers.database
 
 import eu.kanade.tachiyomi.data.database.models.SourceIdMangaCount
+import eu.kanade.tachiyomi.data.track.TrackManager
 import eu.kanade.tachiyomi.source.SourceManager
 import eu.kanade.tachiyomi.ui.base.presenter.BaseCoroutinePresenter
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -35,11 +36,13 @@ class ClearDatabasePresenter : BaseCoroutinePresenter<ClearDatabaseController>()
 
     fun clearDatabaseForSourceIds(sources: List<Long>, keepReadManga: Boolean) {
         presenterScope.launchIO {
+            // Series linked across Kavita and Suwayomi are kept, as a link needs both in the database
+            val linked = Injekt.get<TrackManager>().linkedSeries.linkedIds()
             handler.await(true) {
                 if (keepReadManga) {
-                    mangasQueries.deleteNotInLibraryAndNotReadBySourceIds(sources)
+                    mangasQueries.deleteNotInLibraryAndNotReadBySourceIds(sources, linked)
                 } else {
-                    mangasQueries.deleteNotInLibraryBySourceIds(sources)
+                    mangasQueries.deleteNotInLibraryBySourceIds(sources, linked)
                 }
                 historyQueries.deleteAllUnread()
             }

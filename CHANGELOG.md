@@ -7,6 +7,11 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 ### Changes
 - Statistics has its own tab in the navigation bar, next to Browse, in place of its item in the ⋮ menu. The streak reminder and weekly recap open it
 - The Statistics reading calendar shows the last nine weeks as larger, numbered squares, with weekday and month names, so a day is easier to see and tap. Show more switches to the smaller squares going back further. Days with only a little reading stand out more from days without any
+- A day's reading sessions show each series' cover, with the chapter, when and how long, the pages read, and a tick for a chapter finished. Tap one to open its series
+- Linked series no longer need both series in your library. Linked series searches the other server for the series, so you can link to it there without adding it, or search again under the name it has there. Only series matching the search are listed, each marked In library or On Kavita (or Suwayomi). A linked series outside the library has its chapters fetched from its server when linking and when a chapter to mark isn't there yet, and Clear database keeps it while it's linked
+
+### Fixes
+- Reading the same chapter again within 15 minutes adds to its last reading session, instead of starting another. Turning the screen off, closing the tablet's cover, rotating, or going back a chapter and returning had split one sitting into many short sessions. The time and pages read are the same as before; sessions on different days are still kept apart
 
 ## [1.8.0] - 2026-11-22
 

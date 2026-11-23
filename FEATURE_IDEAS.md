@@ -87,7 +87,7 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | **Streak reminder notification** | A notification in the evening when the streak would end, rather than only a note on the Statistics page | 1.7.0 |
 | **Edit reading sessions** | See each session for a day and delete wrong ones, such as a reader left open, so the stats can be fixed. Opened from a day in the reading calendar | 1.8.0 |
 | **Weekly recap** | An optional notification on the last evening of the week with the week's time read and chapters, compared with the week before | 1.8.0 |
-| **Milestones** | Round numbers reached for chapters, hours, pages, series and days in a row on the Statistics page, with the next ones to aim for, personal bests and an optional notification. Series finished aren't counted, as reading sessions don't say when a series is complete | Unreleased |
+| **Milestones** | Round numbers reached for chapters, hours, pages, series and days in a row on the Statistics page, with the next ones to aim for, personal bests and an optional notification. Series finished aren't counted, as reading sessions don't say when a series is complete | 1.10.0 |
 
 ### Series pages
 
@@ -95,5 +95,5 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | --- | --- | --- |
 | **Series reading history** | Tap the reading line on a series page for each day it was read | 1.7.0 |
 | **Time left at your pace** | Series pages estimate how long the unread chapters would take | 1.7.0 |
-| **Goal progress between chapters** | The page between chapters shows the reading goal with the chapter just finished counted, the streak, and any milestone it reached | Unreleased |
-| **"One more chapter" nudge** | When the goal is nearly met, the page between chapters says how much is left, estimating chapters from the series' pace for goals in minutes | Unreleased |
+| **Goal progress between chapters** | The page between chapters shows the reading goal with the chapter just finished counted, the streak, and any milestone it reached | 1.10.0 |
+| **"One more chapter" nudge** | When the goal is nearly met, the page between chapters says how much is left, estimating chapters from the series' pace for goals in minutes | 1.10.0 |

@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-23
+
 ### Additions
 - Statistics has a Milestones section with round numbers reached for chapters finished, hours read, pages read, series read and days in a row, each with the day it was reached. It also shows the next few to aim for, with how far along each is, and personal bests: the longest session, the most read and the most chapters in a day, and the longest streak
 - An optional notification when you reach a milestone, in Settings → General under Reading reminders. Off by default. Milestones from before it's turned on aren't announced

@@ -100,6 +100,14 @@ import yokai.domain.manga.models.MangaUpdate
 import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingSessionTimer
 import yokai.domain.stats.interactor.InsertReadingSession
+import yokai.domain.stats.interactor.GetReadingSessions
+import yokai.domain.stats.ChapterEndStatus
+import yokai.domain.stats.ReadingGoal
+import eu.kanade.tachiyomi.data.stats.MilestoneNotifier
+import java.time.Instant
+import java.time.ZoneId
+import java.time.temporal.WeekFields
+import java.util.Locale
 import yokai.domain.storage.StorageManager
 import yokai.domain.track.interactor.GetTrack
 import yokai.i18n.MR
@@ -129,6 +137,7 @@ class ReaderViewModel(
     private val getHistory: GetHistory by injectLazy()
     private val upsertHistory: UpsertHistory by injectLazy()
     private val insertReadingSession: InsertReadingSession by injectLazy()
+    private val getReadingSessions: GetReadingSessions by injectLazy()
     private val getTrack: GetTrack by injectLazy()
 
     private val mutableState = MutableStateFlow(State())
@@ -170,6 +179,15 @@ class ReaderViewModel(
     /** Times reading for the stats screen. Separate from [chapterReadStartTime], which feeds history. */
     private val readingSessionTimer = ReadingSessionTimer()
     private var readingSessionTarget: ReadingSessionTimer.Target? = null
+
+    /** What the page between chapters shows about the reading goal, or null to show nothing. */
+    private val mutableChapterEnd = MutableStateFlow<ChapterEndStatus?>(null)
+    val chapterEnd = mutableChapterEnd.asStateFlow()
+    private var chapterEndJob: Job? = null
+    private val openedAt = System.currentTimeMillis()
+
+    /** Milestones shown between chapters, with the chapter they were reached in, so each shows after that one only. */
+    private val milestoneChapters = ConcurrentHashMap<String, String>()
 
     /**
      * Relay used when loading prev/next chapter needed to lock the UI (with a dialog).
@@ -775,6 +793,7 @@ class ReaderViewModel(
     private suspend fun onChapterReadComplete(readerChapter: ReaderChapter) {
         readerChapter.chapter.read = true
         readerChapter.chapter.url.let(readingSessionTimer::markCompleted)
+        refreshChapterEnd()
         updateTrackChapterAfterReading(readerChapter)
         deleteChapterIfNeeded(readerChapter)
 
@@ -831,6 +850,49 @@ class ReaderViewModel(
                 StreakReminderJob.dismiss(Injekt.get<Application>())
             } catch (e: Exception) {
                 Logger.e(e) { "Unable to save reading session" }
+                return@launchNonCancellableIO
+            }
+            try {
+                MilestoneNotifier.check(Injekt.get<Application>())
+            } catch (e: Exception) {
+                Logger.e(e) { "Unable to check reading milestones" }
+            }
+        }
+    }
+
+    /**
+     * Works out the goal progress, streak and milestones for the page between chapters, counting the chapter
+     * being read, which isn't saved until the reader moves on. Called as a chapter is finished, and again when
+     * the page between chapters comes into view, for the time spent on the last page.
+     */
+    fun refreshChapterEnd() {
+        val manga = manga ?: return
+        if (!preferences.chapterEndProgress().get()) {
+            mutableChapterEnd.value = null
+            return
+        }
+        chapterEndJob?.cancel()
+        chapterEndJob = viewModelScope.launchIO {
+            try {
+                val now = System.currentTimeMillis()
+                val current = readingSessionTimer.current(now)?.takeUnless { preferences.incognitoMode().get() }
+                val status = ChapterEndStatus.calculate(
+                    saved = getReadingSessions.awaitAll(),
+                    current = current,
+                    goal = ReadingGoal.decode(preferences.readingGoal().get()),
+                    mangaSource = manga.source,
+                    mangaUrl = manga.url,
+                    since = openedAt,
+                    now = Instant.ofEpochMilli(now),
+                    zone = ZoneId.systemDefault(),
+                    firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
+                )
+                val chapterUrl = current?.chapterUrl ?: getCurrentChapter()?.chapter?.url.orEmpty()
+                val milestones = status.milestones.filter { milestoneChapters.getOrPut(it.key) { chapterUrl } == chapterUrl }
+                mutableChapterEnd.value = status.copy(milestones = milestones).takeUnless { it.isEmpty }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Logger.w(e) { "Could not work out reading goal progress" }
             }
         }
     }

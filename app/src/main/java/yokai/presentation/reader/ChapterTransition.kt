@@ -42,6 +42,22 @@ import eu.kanade.tachiyomi.ui.reader.viewer.missingChapterCount
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.preferredChapterName
 import kotlinx.collections.immutable.persistentMapOf
 import yokai.i18n.MR
+import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import java.text.NumberFormat
+import kotlin.math.max
+import yokai.domain.stats.ChapterEndStatus
+import yokai.domain.stats.GoalMeasure
+import yokai.domain.stats.StreakTier
+import yokai.presentation.stats.MILESTONE_EMOJI
+import yokai.presentation.stats.formatReadTime
+import yokai.presentation.stats.goalPhrase
+import yokai.presentation.stats.goalTitle
+import yokai.presentation.stats.milestoneText
 import yokai.util.secondaryItemAlpha
 
 @Composable
@@ -50,6 +66,7 @@ fun ChapterTransition(
     transition: ChapterTransition,
     currChapterDownloaded: Boolean,
     goingToChapterDownloaded: Boolean,
+    chapterEnd: ChapterEndStatus? = null,
 ) {
     val currChapter = transition.from.chapter
     val goingToChapter = transition.to?.chapter
@@ -71,17 +88,23 @@ fun ChapterTransition(
                 )
             }
             is ChapterTransition.Next -> {
-                TransitionText(
-                    manga = manga,
-                    topLabel = stringResource(MR.strings.finished_chapter),
-                    topChapter = currChapter,
-                    topChapterDownloaded = currChapterDownloaded,
-                    bottomLabel = stringResource(MR.strings.next_title),
-                    bottomChapter = goingToChapter,
-                    bottomChapterDownloaded = goingToChapterDownloaded,
-                    fallbackLabel = stringResource(MR.strings.theres_no_next_chapter),
-                    chapterGap = chapterGap,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    TransitionText(
+                        manga = manga,
+                        topLabel = stringResource(MR.strings.finished_chapter),
+                        topChapter = currChapter,
+                        topChapterDownloaded = currChapterDownloaded,
+                        bottomLabel = stringResource(MR.strings.next_title),
+                        bottomChapter = goingToChapter,
+                        bottomChapterDownloaded = goingToChapterDownloaded,
+                        fallbackLabel = stringResource(MR.strings.theres_no_next_chapter),
+                        chapterGap = chapterGap,
+                    )
+                    if (chapterEnd != null) {
+                        Spacer(Modifier.height(VerticalSpacerSize))
+                        ChapterEndCard(chapterEnd, hasNextChapter = goingToChapter != null)
+                    }
+                }
             }
         }
     }
@@ -285,6 +308,101 @@ private fun ChapterText(
                 style = MaterialTheme.typography.bodySmall,
             )
         }
+    }
+}
+
+/** Progress towards the reading goal, the streak, and milestones just reached, after finishing a chapter. */
+@Composable
+private fun ChapterEndCard(status: ChapterEndStatus, hasNextChapter: Boolean) {
+    val context = LocalContext.current
+    val numbers = remember { NumberFormat.getIntegerInstance() }
+    OutlinedCard(
+        modifier = Modifier
+            .widthIn(max = 460.dp)
+            .fillMaxWidth(),
+        colors = CardColor,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            val progress = status.goal
+            val streak = StreakTier.of(status.streak)?.let {
+                pluralStringResource(MR.plurals.chapter_end_streak, status.streak, it.emoji, status.streak)
+            }
+            if (progress != null || streak != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = progress?.let { stringResource(goalTitle(it.goal.period)) }.orEmpty(),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    streak?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                }
+            }
+            if (progress != null) {
+                val goal = progress.goal
+                val counts = when (goal.measure) {
+                    GoalMeasure.MINUTES -> MR.plurals.stats_goal_minutes_of
+                    GoalMeasure.CHAPTERS -> MR.plurals.stats_goal_chapters_of
+                }
+                Text(
+                    text = pluralStringResource(counts, goal.target, numbers.format(progress.done), numbers.format(goal.target)),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 20.sp,
+                )
+                GoalMeter(progress.fraction)
+                val phrase = stringResource(goal.period.goalPhrase())
+                val nudge = status.nudge?.takeIf { hasNextChapter }
+                val line = when {
+                    status.goalJustMet -> stringResource(MR.strings.chapter_end_goal_met)
+                    progress.isMet -> stringResource(MR.strings.stats_goal_met)
+                    nudge is ChapterEndStatus.Nudge.Chapters -> pluralStringResource(
+                        if (nudge.estimated) MR.plurals.chapter_end_nudge_chapters_estimated else MR.plurals.chapter_end_nudge_chapters,
+                        nudge.count,
+                        nudge.count,
+                        phrase,
+                    )
+                    nudge is ChapterEndStatus.Nudge.Minutes ->
+                        pluralStringResource(MR.plurals.chapter_end_nudge_minutes, nudge.minutes, nudge.minutes, phrase)
+                    else -> stringResource(
+                        MR.strings.stats_goal_to_go,
+                        when (goal.measure) {
+                            GoalMeasure.MINUTES -> context.formatReadTime(progress.remaining * 60_000L)
+                            GoalMeasure.CHAPTERS -> numbers.format(progress.remaining)
+                        },
+                    )
+                }
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (nudge != null || status.goalJustMet) FontWeight.SemiBold else null,
+                )
+            }
+            status.milestones.forEach {
+                Text(
+                    text = "$MILESTONE_EMOJI ${context.milestoneText(it)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GoalMeter(fraction: Float) {
+    val track = LocalContentColor.current.copy(alpha = 0.2f)
+    val fill = MaterialTheme.colorScheme.primary
+    Canvas(
+        Modifier
+            .fillMaxWidth()
+            .height(8.dp),
+    ) {
+        val radius = CornerRadius(size.height / 2)
+        drawRoundRect(track, cornerRadius = radius)
+        val width = size.width * fraction.coerceIn(0f, 1f)
+        if (width > 0f) drawRoundRect(fill, size = Size(max(width, size.height), size.height), cornerRadius = radius)
     }
 }
 

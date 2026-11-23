@@ -192,6 +192,11 @@ class SettingsReaderController : SettingsLegacyController() {
                 summaryRes = MR.strings.if_disabled_transition_will_skip
                 defaultValue = true
             }
+            switchPreference {
+                bindTo(preferences.chapterEndProgress())
+                titleRes = MR.strings.chapter_end_progress
+                summaryRes = MR.strings.chapter_end_progress_summary
+            }
         }
 
         preferenceCategory {

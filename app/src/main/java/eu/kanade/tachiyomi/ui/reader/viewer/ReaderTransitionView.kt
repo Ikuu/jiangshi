@@ -7,6 +7,7 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -16,6 +17,9 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.util.isLocal
 import eu.kanade.tachiyomi.util.system.ThemeUtil
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import yokai.domain.stats.ChapterEndStatus
 import yokai.presentation.reader.ChapterTransition
 import yokai.presentation.theme.YokaiTheme
 
@@ -23,12 +27,20 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
     AbstractComposeView(context, attrs) {
 
     private var data: Data? by mutableStateOf(null)
+    private var chapterEnd: StateFlow<ChapterEndStatus?> by mutableStateOf(MutableStateFlow(null))
 
     init {
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
     }
 
-    fun bind(theme: Int, transition: ChapterTransition, downloadManager: DownloadManager, manga: Manga?) {
+    fun bind(
+        theme: Int,
+        transition: ChapterTransition,
+        downloadManager: DownloadManager,
+        manga: Manga?,
+        chapterEnd: StateFlow<ChapterEndStatus?>,
+    ) {
+        this.chapterEnd = chapterEnd
         data = if (manga != null) {
             Data(
                 theme = theme,
@@ -51,6 +63,7 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
 
     @Composable
     override fun Content() {
+        val chapterEnd by chapterEnd.collectAsState()
         data?.let {
             YokaiTheme {
                 CompositionLocalProvider (
@@ -62,6 +75,7 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
                         transition = it.transition,
                         currChapterDownloaded = it.currChapterDownloaded,
                         goingToChapterDownloaded = it.goingToChapterDownloaded,
+                        chapterEnd = chapterEnd,
                     )
                 }
             }

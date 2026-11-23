@@ -192,6 +192,18 @@ class PreferencesHelper(val context: Context, val preferenceStore: PreferenceSto
     /** The reading goal on the Statistics page, as ReadingGoal.encode() gives it, or empty for none */
     fun readingGoal() = preferenceStore.getString("reading_goal", "")
 
+    /** Whether to send a notification when a reading milestone is reached, such as the 1,000th chapter */
+    fun milestoneNotifications() = preferenceStore.getBoolean("milestone_notifications", false)
+
+    /**
+     * Milestones already announced or reached before milestone notifications were turned on, as Milestone.key
+     * gives them. Empty until they're first turned on.
+     */
+    fun milestonesAnnounced() = preferenceStore.getStringSet("milestones_announced", emptySet())
+
+    /** Whether the page between chapters shows progress towards the reading goal and the streak */
+    fun chapterEndProgress() = preferenceStore.getBoolean("chapter_end_progress", true)
+
     /** Bookmarks for Suwayomi that haven't reached the server yet, as "mangaId:chapterNumber:bookmarked" */
     fun suwayomiPendingBookmarks() = preferenceStore.getStringSet("suwayomi_pending_bookmarks", emptySet())
 

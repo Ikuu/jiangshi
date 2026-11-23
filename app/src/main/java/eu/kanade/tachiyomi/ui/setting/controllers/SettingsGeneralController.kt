@@ -40,6 +40,8 @@ import java.time.format.FormatStyle
 import eu.kanade.tachiyomi.data.preference.changesIn
 import eu.kanade.tachiyomi.data.stats.StreakReminderJob
 import eu.kanade.tachiyomi.data.stats.WeeklyRecapJob
+import eu.kanade.tachiyomi.data.stats.MilestoneNotifier
+import eu.kanade.tachiyomi.util.system.launchIO
 import java.time.format.TextStyle
 import eu.kanade.tachiyomi.data.preference.PreferenceKeys as Keys
 
@@ -142,6 +144,21 @@ class SettingsGeneralController : SettingsLegacyController() {
                 summary = context.getString(MR.strings.weekly_recap_summary, day, time)
             }
             preferences.weeklyRecap().changesIn(viewScope) { WeeklyRecapJob.setupTask(context) }
+
+            switchPreference {
+                bindTo(preferences.milestoneNotifications())
+                titleRes = MR.strings.milestone_notifications
+                summaryRes = MR.strings.milestone_notifications_summary
+                onChange { enabled ->
+                    // Milestones reached while these were off aren't news, so count from now
+                    if (enabled == true) {
+                        MilestoneNotifier.reset()
+                        val appContext = context.applicationContext
+                        viewScope.launchIO { MilestoneNotifier.check(appContext) }
+                    }
+                    true
+                }
+            }
         }
 
         preferenceCategory {

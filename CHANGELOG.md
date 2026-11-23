@@ -4,6 +4,11 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Additions
+- Statistics has a Milestones section with round numbers reached for chapters finished, hours read, pages read, series read and days in a row, each with the day it was reached. It also shows the next few to aim for, with how far along each is, and personal bests: the longest session, the most read and the most chapters in a day, and the longest streak
+- An optional notification when you reach a milestone, in Settings → General under Reading reminders. Off by default. Milestones from before it's turned on aren't announced
+- The page between chapters shows progress towards your reading goal, counting the chapter just finished, along with your streak and any milestone that chapter reached. When the goal is nearly met it says how much is left, such as "One more chapter to reach today's goal". For a goal in minutes, the series' pace says how many chapters that probably is. Turn it off in Settings → Reader with "Show reading goal between chapters"
+
 ## [1.9.0] - 2026-11-22
 
 ### Changes

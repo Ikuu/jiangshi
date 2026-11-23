@@ -1,6 +1,6 @@
 # Feature ideas
 
-Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added to on 2026-11-22. Open ideas are grouped by area, with done ones and the release they shipped in at the end.
+Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added to on 2026-11-23. Open ideas are grouped by area, with done ones and the release they shipped in at the end.
 
 ## To do
 
@@ -41,6 +41,7 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 - [ ] **Year in review entry names.** Top series in the year in review count issues for comics and chapters otherwise, where the Statistics page asks Kavita whether entries are volumes. A Kavita series read by volume shows "0 issues read".
 - [ ] **Linked series during library updates.** Library updates bring in chapters read on a Suwayomi server, but don't pass them on to a linked Kavita series. That happens when the series is opened.
 - [ ] **1.8.0 features partly tested on a device.** On the tablet (2026-11-22), server status reached both servers, the settings appear, the sessions list opens with chapter names, and Linked series lists the Suwayomi series. Still to try: actually linking two series, a recap notification, downloading ahead after finishing a Suwayomi chapter, and deleting a session.
+- [ ] **Goal progress between chapters untested in the reader.** The Statistics milestones were checked on the tablet (2026-11-23), but the card on the page between chapters, the nudge and the milestone notification haven't been seen on a device yet.
 - [ ] **Untested on a device.** Marking chapters read or unread from the library and Recents screens uses the same code as the series screen, but hasn't been tried on a real device.
 
 ## Done
@@ -86,6 +87,7 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | **Streak reminder notification** | A notification in the evening when the streak would end, rather than only a note on the Statistics page | 1.7.0 |
 | **Edit reading sessions** | See each session for a day and delete wrong ones, such as a reader left open, so the stats can be fixed. Opened from a day in the reading calendar | 1.8.0 |
 | **Weekly recap** | An optional notification on the last evening of the week with the week's time read and chapters, compared with the week before | 1.8.0 |
+| **Milestones** | Round numbers reached for chapters, hours, pages, series and days in a row on the Statistics page, with the next ones to aim for, personal bests and an optional notification. Series finished aren't counted, as reading sessions don't say when a series is complete | Unreleased |
 
 ### Series pages
 
@@ -93,3 +95,5 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | --- | --- | --- |
 | **Series reading history** | Tap the reading line on a series page for each day it was read | 1.7.0 |
 | **Time left at your pace** | Series pages estimate how long the unread chapters would take | 1.7.0 |
+| **Goal progress between chapters** | The page between chapters shows the reading goal with the chapter just finished counted, the streak, and any milestone it reached | Unreleased |
+| **"One more chapter" nudge** | When the goal is nearly met, the page between chapters says how much is left, estimating chapters from the series' pace for goals in minutes | Unreleased |

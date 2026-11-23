@@ -50,12 +50,27 @@ class ReadingSessionTimer(private val idleCutoff: Long = DEFAULT_IDLE_CUTOFF) {
         if (target?.chapterUrl == chapterUrl) completed = true
     }
 
+    /** The session so far, as [stop] would return it at [now], while it carries on. */
+    @Synchronized
+    fun current(now: Long): ReadingSession? {
+        if (target == null) return null
+        val gap = (now - lastActivity).coerceIn(0L, idleCutoff)
+        return session(now, activeTime + gap)
+    }
+
     /** Ends the current session, returning it unless nothing worth keeping happened. */
     @Synchronized
     fun stop(now: Long): ReadingSession? {
-        val target = target ?: return null
+        if (target == null) return null
         addGap(now)
-        val session = ReadingSession(
+        val session = session(now, activeTime)
+        reset()
+        return session.takeIf { it.duration >= MIN_SESSION_DURATION || it.completed }
+    }
+
+    private fun session(now: Long, duration: Long): ReadingSession {
+        val target = target!!
+        return ReadingSession(
             mangaSource = target.mangaSource,
             mangaUrl = target.mangaUrl,
             mangaTitle = target.mangaTitle,
@@ -64,12 +79,10 @@ class ReadingSessionTimer(private val idleCutoff: Long = DEFAULT_IDLE_CUTOFF) {
             chapterNumber = target.chapterNumber,
             startedAt = startedAt,
             endedAt = now,
-            duration = activeTime,
+            duration = duration,
             pagesRead = pages.size,
             completed = completed,
         )
-        reset()
-        return session.takeIf { it.duration >= MIN_SESSION_DURATION || it.completed }
     }
 
     private fun addGap(now: Long) {

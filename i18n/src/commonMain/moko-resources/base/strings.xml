@@ -1138,6 +1138,28 @@
     <string name="stats_delete_session">Delete session</string>
     <string name="stats_delete_session_title">Delete this session?</string>
     <string name="stats_delete_session_body">%1$s reading %2$s is taken out of Statistics for good.</string>
+    <string name="stats_section_milestones">Milestones</string>
+    <string name="stats_milestones_next">Next up</string>
+    <string name="stats_milestones_reached">Reached</string>
+    <string name="stats_milestones_none">None reached yet. The first ones are 10 chapters finished and an hour read.</string>
+    <string name="stats_milestone_progress">%1$s · %2$s of %3$s</string>
+    <string name="stats_hours_read">Hours read</string>
+    <string name="stats_days_in_a_row">Days in a row</string>
+    <string name="stats_records">Personal bests</string>
+    <string name="stats_record_busiest_day">Most read in a day</string>
+    <string name="stats_record_most_chapters">Most chapters in a day</string>
+    <string name="stats_record_when">%1$s · %2$s</string>
+    <string name="milestone_notifications">Milestones</string>
+    <string name="milestone_notifications_summary">A notification when you reach a reading milestone, such as your 1,000th chapter</string>
+    <string name="milestone_notification_body">A new reading milestone. Tap to see them all in Statistics.</string>
+    <string name="milestone_notification_also">Also %1$s</string>
+    <string name="chapter_end_progress">Show reading goal between chapters</string>
+    <string name="chapter_end_progress_summary">The page between chapters shows progress towards your reading goal, your streak, and milestones reached</string>
+    <string name="chapter_end_goal_met">🎉 Goal met</string>
+    <string name="chapter_end_goal_day">today\'s goal</string>
+    <string name="chapter_end_goal_week">this week\'s goal</string>
+    <string name="chapter_end_goal_month">this month\'s goal</string>
+    <string name="chapter_end_goal_year">this year\'s goal</string>
 
     <!-- Suwayomi server downloads -->
     <string name="server_downloads">Server downloads</string>

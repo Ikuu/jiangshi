@@ -178,6 +178,51 @@
         <item quantity="other">%1$s Your %2$d day streak ends tonight</item>
     </plurals>
 
+    <plurals name="milestone_chapters">
+        <item quantity="one">%1$s chapter finished</item>
+        <item quantity="other">%1$s chapters finished</item>
+    </plurals>
+
+    <plurals name="milestone_hours">
+        <item quantity="one">%1$s hour read</item>
+        <item quantity="other">%1$s hours read</item>
+    </plurals>
+
+    <plurals name="milestone_pages">
+        <item quantity="one">%1$s page read</item>
+        <item quantity="other">%1$s pages read</item>
+    </plurals>
+
+    <plurals name="milestone_series">
+        <item quantity="one">%1$s series read</item>
+        <item quantity="other">%1$s series read</item>
+    </plurals>
+
+    <plurals name="milestone_streak">
+        <item quantity="one">%1$s day streak</item>
+        <item quantity="other">%1$s day streak</item>
+    </plurals>
+
+    <plurals name="chapter_end_streak">
+        <item quantity="one">%1$s %2$d day streak</item>
+        <item quantity="other">%1$s %2$d day streak</item>
+    </plurals>
+
+    <plurals name="chapter_end_nudge_chapters">
+        <item quantity="one">One more chapter to reach %2$s</item>
+        <item quantity="other">%1$d more chapters to reach %2$s</item>
+    </plurals>
+
+    <plurals name="chapter_end_nudge_chapters_estimated">
+        <item quantity="one">One more chapter should reach %2$s</item>
+        <item quantity="other">About %1$d more chapters should reach %2$s</item>
+    </plurals>
+
+    <plurals name="chapter_end_nudge_minutes">
+        <item quantity="one">%1$d more minute to reach %2$s</item>
+        <item quantity="other">%1$d more minutes to reach %2$s</item>
+    </plurals>
+
     <plurals name="reading_history_finished">
         <item quantity="one">%d finished</item>
         <item quantity="other">%d finished</item>

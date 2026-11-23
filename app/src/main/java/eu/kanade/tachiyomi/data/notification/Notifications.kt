@@ -97,6 +97,7 @@ object Notifications {
     const val CHANNEL_REMINDERS = "reading_reminders_channel"
     const val ID_STREAK_REMINDER = -801
     const val ID_WEEKLY_RECAP = -802
+    const val ID_MILESTONE = -803
 
     private val deprecatedChannels = listOf(
         "backup_restore_channel",

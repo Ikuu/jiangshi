@@ -36,6 +36,7 @@ import yokai.domain.stats.ReadingPace
 import yokai.domain.stats.UnreadEntry
 import eu.kanade.tachiyomi.data.track.kavita.KavitaApi
 import yokai.domain.stats.YearInReview
+import yokai.domain.stats.Milestones
 import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingStats
 import yokai.domain.stats.SeriesStats
@@ -225,6 +226,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
                 ?.progress(sessions, now, zone, WeekFields.of(Locale.getDefault()).firstDayOfWeek),
             streakAtRisk = streakAtRisk,
             years = YearInReview.years(sessions, zone),
+            milestones = Milestones.calculate(sessions, today, zone),
             hasAnyReading = sessions.isNotEmpty(),
             mangaByKey = mangaByKey,
             entryKinds = entryKinds,
@@ -302,6 +304,8 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             val streakAtRisk: Boolean,
             /** Years with any reading, newest first, for the year in review. */
             val years: List<Int>,
+            /** All time, whatever the period. */
+            val milestones: Milestones,
             val hasAnyReading: Boolean,
             val mangaByKey: Map<SeriesKey, Manga>,
             val entryKinds: Map<SeriesKey, EntryKinds>,

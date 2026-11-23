@@ -35,6 +35,23 @@ class ReadingSessionTimerTest {
     }
 
     @Test
+    fun `the session so far carries on afterwards`() {
+        timer.onActivity(chapter("c1"), 0, 0)
+        timer.onActivity(chapter("c1"), 1, 2 * minute)
+        timer.markCompleted("c1")
+
+        val soFar = timer.current(3 * minute)!!
+        assertEquals(3 * minute, soFar.duration)
+        assertEquals(2, soFar.pagesRead)
+        assertTrue(soFar.completed)
+
+        // Looking doesn't stop the timer, and a long wait still counts only up to the cutoff
+        assertEquals(7 * minute, timer.current(20 * minute)!!.duration)
+        assertEquals(4 * minute, timer.stop(4 * minute)!!.duration)
+        assertNull(timer.current(5 * minute))
+    }
+
+    @Test
     fun `caps long gaps at the idle cutoff`() {
         timer.onActivity(chapter("c1"), 0, 0)
         timer.onActivity(chapter("c1"), 1, 30 * minute)

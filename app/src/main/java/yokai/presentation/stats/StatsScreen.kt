@@ -44,6 +44,7 @@ import yokai.domain.stats.GoalPeriod
 import yokai.domain.stats.GoalProgress
 import yokai.domain.stats.ReadingGoal
 import yokai.domain.stats.StreakTier
+import yokai.domain.stats.Milestones
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -97,6 +98,8 @@ import yokai.util.lang.getString
 
 private val ContentMaxWidth = 720.dp
 private const val MOST_READ_LIMIT = 10
+private const val NEXT_MILESTONES = 3
+private const val REACHED_MILESTONES = 5
 
 /** Set when Statistics is a tab of the main navigation, with the room the bottom navigation takes. */
 data class StatsTab(val bottomPadding: androidx.compose.ui.unit.Dp)
@@ -232,6 +235,7 @@ private fun StatsContent(
                     seriesSection(state, time, openManga)
                     typesSection(state, time)
                 }
+                milestonesSection(state.milestones, time)
             }
 
             state.library?.let { librarySection(it, time, openManga) }
@@ -298,7 +302,7 @@ private fun GoalCard(progress: GoalProgress?, time: (Long) -> String, onEdit: ()
     }
 }
 
-private fun goalTitle(period: GoalPeriod) = when (period) {
+internal fun goalTitle(period: GoalPeriod) = when (period) {
     GoalPeriod.DAY -> MR.strings.stats_goal_day
     GoalPeriod.WEEK -> MR.strings.stats_goal_week
     GoalPeriod.MONTH -> MR.strings.stats_goal_month
@@ -848,6 +852,126 @@ private fun LazyListScope.typesSection(state: StatsScreenModel.State.Success, ti
                     ).joinToString(" · ").ifEmpty { null }
                 },
             )
+        }
+    }
+}
+
+private fun LazyListScope.milestonesSection(milestones: Milestones, time: (Long) -> String) {
+    item(key = "milestones_header") { SectionHeader(stringResource(MR.strings.stats_section_milestones)) }
+
+    if (milestones.next.isNotEmpty()) {
+        item(key = "milestones_next") {
+            val numbers = NumberFormat.getIntegerInstance()
+            Card {
+                CardTitle(stringResource(MR.strings.stats_milestones_next))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    milestones.next.take(NEXT_MILESTONES).forEach { next ->
+                        Column {
+                            Text(
+                                stringResource(
+                                    MR.strings.stats_milestone_progress,
+                                    stringResource(next.kind.label()),
+                                    numbers.format(next.current),
+                                    numbers.format(next.value),
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Meter(next.fraction)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    item(key = "milestones_reached") {
+        val context = LocalContext.current
+        val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault()) }
+        var showAll by remember { mutableStateOf(false) }
+        Card {
+            CardTitle(stringResource(MR.strings.stats_milestones_reached))
+            if (milestones.reached.isEmpty()) {
+                Text(
+                    stringResource(MR.strings.stats_milestones_none),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            val shown = if (showAll) milestones.reached else milestones.reached.take(REACHED_MILESTONES)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                shown.forEach { milestone ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "$MILESTONE_EMOJI ${context.milestoneText(milestone)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            dateFormat.format(Instant.ofEpochMilli(milestone.reachedAt).atZone(ZoneId.systemDefault())),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            if (milestones.reached.size > REACHED_MILESTONES) {
+                TextButton(onClick = { showAll = !showAll }) {
+                    Text(stringResource(if (showAll) MR.strings.stats_calendar_show_less else MR.strings.stats_calendar_show_more))
+                }
+            }
+        }
+    }
+
+    val records = milestones.records
+    if (records.longestSession != null) {
+        item(key = "records") {
+            val dateFormat = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault()) }
+            val numbers = NumberFormat.getIntegerInstance()
+            val rows = listOfNotNull(
+                records.longestSession.let { session ->
+                    val day = Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.systemDefault()).toLocalDate()
+                    Triple(
+                        stringResource(MR.strings.stats_longest_session),
+                        time(session.duration),
+                        stringResource(MR.strings.stats_record_when, dateFormat.format(day), session.mangaTitle),
+                    )
+                },
+                records.busiestDay?.let { (day, ms) ->
+                    Triple(stringResource(MR.strings.stats_record_busiest_day), time(ms), dateFormat.format(day))
+                },
+                records.mostChaptersInADay?.let { (day, count) ->
+                    Triple(stringResource(MR.strings.stats_record_most_chapters), numbers.format(count), dateFormat.format(day))
+                },
+                records.longestStreak?.let { (days, end) ->
+                    Triple(
+                        stringResource(MR.strings.stats_longest_streak),
+                        pluralStringResource(MR.plurals.stats_days, days, days),
+                        dateFormat.format(end.minusDays(days - 1L)) + " – " + dateFormat.format(end),
+                    )
+                },
+            )
+            Card {
+                CardTitle(stringResource(MR.strings.stats_records))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    rows.forEach { (label, value, detail) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(label, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    detail,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(value, style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+            }
         }
     }
 }

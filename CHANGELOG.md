@@ -4,6 +4,8 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-11-26
+
 ### Additions
 - Statistics counts the series you've read to the end: ones that have finished publishing, been completed or cancelled, with every chapter read. Each is dated by the day you finished the last chapter it needed. Finishing series is a milestone, from the first one on, and shows in Next up with the others. The Finished list on Statistics shows the series finished in the period you're looking at, and Year in review and Month in review count them. Series finished before reading time was recorded, in 1.5.0, aren't counted
 - When you finish the last chapter of a series linked with one on the other server, the page between chapters offers the next unread chapter there, such as Suwayomi's newer chapters after the last Kavita volume. Tap Read to carry on in that series. It picks up after the furthest chapter read in either series. After a whole volume, it needs a chapter marked read on the other server to know where to pick up

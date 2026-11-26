@@ -7,7 +7,17 @@ import java.time.YearMonth
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
-enum class StatsPeriod { WEEK, MONTH, YEAR, ALL }
+enum class StatsPeriod {
+    WEEK, MONTH, YEAR, ALL;
+
+    /** The first day the period covers, up to [today], or null for all time. */
+    fun start(today: LocalDate): LocalDate? = when (this) {
+        WEEK -> today.minusDays(6)
+        MONTH -> today.minusDays(29)
+        YEAR -> YearMonth.from(today).minusMonths(11).atDay(1)
+        ALL -> null
+    }
+}
 
 /** How long the bars on the timeline are. */
 enum class TimelineUnit { DAY, MONTH, YEAR }
@@ -43,7 +53,7 @@ data class TypeStats(
     val pagesPerMinute: Double? get() = if (time >= 60_000L && pagesRead > 0) pagesRead / (time / 60_000.0) else null
 }
 
-/** Stats for one period. Streaks and [readingDays] always cover all time. */
+/** Stats for one period. Streaks and [readingDays] always cover all time, and streaks only count days per [Streak.counts]. */
 data class ReadingStats(
     val period: StatsPeriod,
     val totalTime: Long,
@@ -80,12 +90,7 @@ data class ReadingStats(
             val today = now.atZone(zone).toLocalDate()
             fun ReadingSession.day() = Instant.ofEpochMilli(startedAt).atZone(zone).toLocalDate()
 
-            val periodStart: LocalDate? = when (period) {
-                StatsPeriod.WEEK -> today.minusDays(6)
-                StatsPeriod.MONTH -> today.minusDays(29)
-                StatsPeriod.YEAR -> YearMonth.from(today).minusMonths(11).atDay(1)
-                StatsPeriod.ALL -> null
-            }
+            val periodStart = period.start(today)
             val sessions = allSessions.filter { session ->
                 val day = session.day()
                 (periodStart == null || !day.isBefore(periodStart)) && !day.isAfter(today)
@@ -109,7 +114,7 @@ data class ReadingStats(
             val series = seriesStats(sessions)
             val types = typeStats(sessions)
 
-            val (currentStreak, longestStreak) = streaks(readingDays.keys, today)
+            val (currentStreak, longestStreak) = streaks(readingDays.filterValues(Streak::counts).keys, today)
             val totalTime = sessions.sumOf { it.duration }
 
             return ReadingStats(

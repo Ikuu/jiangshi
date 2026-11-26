@@ -107,6 +107,17 @@ class ChapterEndStatusTest {
     }
 
     @Test
+    fun `no streak is shown until today's reading is enough to count`() {
+        val saved = listOf(
+            testSession(now.minusDays(2), 10, chapter = "c1"),
+            testSession(now.minusDays(1), 10, chapter = "c2"),
+        )
+
+        assertEquals(0, status(saved, briefSession(now.minusSeconds(30), 30, chapter = "c3"), goal = null).streak)
+        assertEquals(3, status(saved, briefSession(now.minusSeconds(90), 90, chapter = "c3"), goal = null).streak)
+    }
+
+    @Test
     fun `only milestones reached since the reader opened are shown`() {
         val saved = (1..9).map { testSession(now.minusDays(1).plusMinutes(it * 10L), 5, chapter = "c$it", completed = true) }
         val current = testSession(now.minusMinutes(10), 10, chapter = "c10", completed = true)

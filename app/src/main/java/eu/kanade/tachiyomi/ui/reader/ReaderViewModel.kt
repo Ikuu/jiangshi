@@ -102,7 +102,10 @@ import yokai.domain.stats.ReadingSessionTimer
 import yokai.domain.stats.interactor.InsertReadingSession
 import yokai.domain.stats.interactor.GetReadingSessions
 import yokai.domain.stats.ChapterEndStatus
+import eu.kanade.tachiyomi.data.track.LinkedSeries
+import yokai.domain.stats.interactor.GetFinishedSeries
 import yokai.domain.stats.ReadingGoal
+import yokai.domain.stats.Streak
 import eu.kanade.tachiyomi.data.stats.MilestoneNotifier
 import java.time.Instant
 import java.time.ZoneId
@@ -185,6 +188,11 @@ class ReaderViewModel(
     val chapterEnd = mutableChapterEnd.asStateFlow()
     private var chapterEndJob: Job? = null
     private val openedAt = System.currentTimeMillis()
+
+    /** The chapter to carry on with in a linked series, offered after the last chapter here. */
+    private val mutableLinkedNext = MutableStateFlow<LinkedSeries.Next?>(null)
+    val linkedNext = mutableLinkedNext.asStateFlow()
+    private var linkedNextJob: Job? = null
 
     /** Milestones shown between chapters, with the chapter they were reached in, so each shows after that one only. */
     private val milestoneChapters = ConcurrentHashMap<String, String>()
@@ -468,7 +476,21 @@ class ReaderViewModel(
                 it.copy(viewerChapters = newChapters)
             }
         }
+        updateLinkedNext(newChapters)
         return newChapters
+    }
+
+    /** Looks for a chapter to carry on with in the linked series, when the chapter being read is the last one here. */
+    private fun updateLinkedNext(chapters: ViewerChapters) {
+        val manga = manga
+        linkedNextJob?.cancel()
+        if (manga == null || chapters.nextChapter != null) {
+            mutableLinkedNext.value = null
+            return
+        }
+        linkedNextJob = viewModelScope.launchIO {
+            mutableLinkedNext.value = Injekt.get<TrackManager>().linkedSeries.nextChapter(manga, chapters.currChapter.chapter)
+        }
     }
 
     /**
@@ -846,8 +868,10 @@ class ReaderViewModel(
         viewModelScope.launchNonCancellableIO {
             try {
                 insertReadingSession.await(session)
-                // Today's reading keeps the streak going, so the reminder no longer applies
-                StreakReminderJob.dismiss(Injekt.get<Application>())
+                // Once today's reading is enough to keep the streak going, the reminder no longer applies
+                if (Streak.atRisk(getReadingSessions.awaitAll(), Instant.now(), ZoneId.systemDefault()) == null) {
+                    StreakReminderJob.dismiss(Injekt.get<Application>())
+                }
             } catch (e: Exception) {
                 Logger.e(e) { "Unable to save reading session" }
                 return@launchNonCancellableIO
@@ -876,8 +900,9 @@ class ReaderViewModel(
             try {
                 val now = System.currentTimeMillis()
                 val current = readingSessionTimer.current(now)?.takeUnless { preferences.incognitoMode().get() }
+                val saved = getReadingSessions.awaitAll()
                 val status = ChapterEndStatus.calculate(
-                    saved = getReadingSessions.awaitAll(),
+                    saved = saved,
                     current = current,
                     goal = ReadingGoal.decode(preferences.readingGoal().get()),
                     mangaSource = manga.source,
@@ -886,6 +911,7 @@ class ReaderViewModel(
                     now = Instant.ofEpochMilli(now),
                     zone = ZoneId.systemDefault(),
                     firstDayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
+                    finished = Injekt.get<GetFinishedSeries>().await(saved + listOfNotNull(current)),
                 )
                 val chapterUrl = current?.chapterUrl ?: getCurrentChapter()?.chapter?.url.orEmpty()
                 val milestones = status.milestones.filter { milestoneChapters.getOrPut(it.key) { chapterUrl } == chapterUrl }

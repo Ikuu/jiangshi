@@ -1,5 +1,6 @@
 package yokai.domain.stats
 
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -34,6 +35,26 @@ class StreakTest {
     @Test
     fun `reading today means nothing is at risk`() {
         assertNull(Streak.atRisk(readOn(16, 17, 18), now, zone))
+    }
+
+    @Test
+    fun `a moment in the reader today doesn't keep the streak`() {
+        val sessions = readOn(15, 16, 17) + briefSession(LocalDateTime.of(2026, 11, 18, 0, 30), 20)
+        assertEquals(3, Streak.atRisk(sessions, now, zone))
+    }
+
+    @Test
+    fun `short sessions that add up to a minute keep the streak`() {
+        val sessions = readOn(15, 16, 17) +
+            briefSession(LocalDateTime.of(2026, 11, 18, 9, 0), 40) +
+            briefSession(LocalDateTime.of(2026, 11, 18, 12, 0), 20)
+        assertNull(Streak.atRisk(sessions, now, zone))
+    }
+
+    @Test
+    fun `only days with a minute of reading count`() {
+        val sessions = readOn(15) + briefSession(LocalDateTime.of(2026, 11, 16, 9, 0), 59)
+        assertEquals(setOf(LocalDate.of(2026, 11, 15)), Streak.days(sessions, zone))
     }
 
     @Test

@@ -67,6 +67,34 @@ class MilestonesTest {
     }
 
     @Test
+    fun `a day with under a minute of reading breaks the streak`() {
+        val sessions = listOf(
+            testSession(LocalDateTime.of(2026, 11, 1, 20, 0), 10, chapter = "c1"),
+            testSession(LocalDateTime.of(2026, 11, 2, 20, 0), 10, chapter = "c2"),
+            briefSession(LocalDateTime.of(2026, 11, 3, 0, 30), 20, chapter = "c2"),
+            testSession(LocalDateTime.of(2026, 11, 4, 20, 0), 10, chapter = "c3"),
+        )
+        val milestones = Milestones.calculate(sessions, today, zone)
+
+        assertTrue(milestones.reached.none { it.kind == MilestoneKind.STREAK })
+        assertEquals(2 to LocalDate.of(2026, 11, 2), milestones.records.longestStreak)
+    }
+
+    @Test
+    fun `a streak is reached by the session that makes the day's reading enough`() {
+        val sessions = listOf(
+            testSession(LocalDateTime.of(2026, 11, 1, 20, 0), 10, chapter = "c1"),
+            testSession(LocalDateTime.of(2026, 11, 2, 20, 0), 10, chapter = "c2"),
+            briefSession(LocalDateTime.of(2026, 11, 3, 9, 0), 30, chapter = "c3"),
+            briefSession(LocalDateTime.of(2026, 11, 3, 12, 0), 30, chapter = "c3"),
+        )
+        val streak = Milestones.calculate(sessions, today, zone).reached.single { it.kind == MilestoneKind.STREAK }
+
+        assertEquals(3L, streak.value)
+        assertEquals(sessions[3].startedAt, streak.reachedAt)
+    }
+
+    @Test
     fun `the next streak counts from the streak going now`() {
         // A 3 day streak ended a while ago, and a 2 day streak runs up to yesterday
         val sessions = listOf(1L, 2L, 3L, 18L, 19L).mapIndexed { i, day ->

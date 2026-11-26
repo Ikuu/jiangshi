@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.track
 
 import co.touchlab.kermit.Logger
+import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.create
 import eu.kanade.tachiyomi.data.preference.PreferencesHelper
@@ -10,6 +11,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
 import eu.kanade.tachiyomi.util.chapter.syncChaptersWithSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -206,6 +208,42 @@ class LinkedSeries(private val trackManager: TrackManager) {
         trackManager.suwayomi.updateChaptersRead(other, changed.map { it.chapter_number }, read)
         trackManager.kavita.updateChaptersRead(other, changed, read)
         return changed
+    }
+
+    /** A chapter to carry on with in a linked series, from [server]. */
+    class Next(val manga: Manga, val chapter: Chapter, val server: StringResource)
+
+    /**
+     * The chapter to carry on with in the series [manga] is linked with, once [after], the last chapter in [manga],
+     * is read: the first unread one past both [after] and the furthest chapter read there, as marks are kept the
+     * same in both. Null when [manga] isn't linked or the other has nothing further, and when neither says how far
+     * the reading has got, such as after a whole volume with nothing read in the other. A series outside the
+     * library has its chapters fetched again when nothing further is found, at most once an hour.
+     */
+    suspend fun nextChapter(manga: Manga, after: Chapter): Next? {
+        val otherId = manga.id?.let(::linkedTo) ?: return null
+        return try {
+            val other = getManga.awaitById(otherId) ?: return null
+            val server = serverOf(other) ?: return null
+            val reachedHere = matchable(listOf(after)).firstOrNull()?.chapter_number
+            suspend fun find(): Chapter? {
+                val theirs = matchable(getChapter.awaitAll(otherId, true))
+                val reached = listOfNotNull(reachedHere, theirs.filter { it.read }.maxOfOrNull { it.chapter_number }).maxOrNull()
+                    ?: return null
+                return theirs.filter { !it.read && it.chapter_number > reached }.minByOrNull { it.chapter_number }
+            }
+            val next = find() ?: if (!other.favorite && shouldRefresh(otherId)) {
+                refreshChapters(other)
+                find()
+            } else {
+                null
+            }
+            next?.let { Next(other, it, server.nameRes()) }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Logger.w(e) { "Could not find the next chapter in the series linked with ${manga.url}" }
+            null
+        }
     }
 
     /**

@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.AbstractComposeView
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.data.track.LinkedSeries
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.util.isLocal
@@ -28,6 +29,8 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
 
     private var data: Data? by mutableStateOf(null)
     private var chapterEnd: StateFlow<ChapterEndStatus?> by mutableStateOf(MutableStateFlow(null))
+    private var linkedNext: StateFlow<LinkedSeries.Next?> by mutableStateOf(MutableStateFlow(null))
+    private var onOpenLinked: (LinkedSeries.Next) -> Unit = {}
 
     init {
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
@@ -39,8 +42,12 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
         downloadManager: DownloadManager,
         manga: Manga?,
         chapterEnd: StateFlow<ChapterEndStatus?>,
+        linkedNext: StateFlow<LinkedSeries.Next?>,
+        onOpenLinked: (LinkedSeries.Next) -> Unit,
     ) {
         this.chapterEnd = chapterEnd
+        this.linkedNext = linkedNext
+        this.onOpenLinked = onOpenLinked
         data = if (manga != null) {
             Data(
                 theme = theme,
@@ -64,6 +71,7 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
     @Composable
     override fun Content() {
         val chapterEnd by chapterEnd.collectAsState()
+        val linkedNext by linkedNext.collectAsState()
         data?.let {
             YokaiTheme {
                 CompositionLocalProvider (
@@ -76,6 +84,9 @@ class ReaderTransitionView @JvmOverloads constructor(context: Context, attrs: At
                         currChapterDownloaded = it.currChapterDownloaded,
                         goingToChapterDownloaded = it.goingToChapterDownloaded,
                         chapterEnd = chapterEnd,
+                        // Only once there's nothing further here, as it's worked out for the chapter being read
+                        linkedNext = linkedNext?.takeIf { _ -> it.transition is ChapterTransition.Next && it.transition.to == null },
+                        onOpenLinked = onOpenLinked,
                     )
                 }
             }

@@ -74,6 +74,8 @@ class PagerTransitionHolder(
             viewer.downloadManager,
             viewer.activity.viewModel.manga,
             viewer.activity.viewModel.chapterEnd,
+            viewer.activity.viewModel.linkedNext,
+            viewer.activity::openLinkedChapter,
         )
 
         transition.to?.let { observeStatus(it) }

@@ -203,6 +203,11 @@
         <item quantity="other">%1$s day streak</item>
     </plurals>
 
+    <plurals name="milestone_finished">
+        <item quantity="one">%1$s series finished</item>
+        <item quantity="other">%1$s series finished</item>
+    </plurals>
+
     <plurals name="chapter_end_streak">
         <item quantity="one">%1$s %2$d day streak</item>
         <item quantity="other">%1$s %2$d day streak</item>

@@ -5,6 +5,10 @@ import java.time.ZoneOffset
 
 internal const val MINUTE = 60_000L
 
+/** A session lasting only [seconds], like waking the tablet with the reader still open. */
+internal fun briefSession(at: LocalDateTime, seconds: Long, chapter: String = "c1"): ReadingSession =
+    testSession(at, 0, chapter = chapter).let { it.copy(endedAt = it.startedAt + seconds * 1000, duration = seconds * 1000) }
+
 /** A session for tests, starting at [at] in UTC. */
 internal fun testSession(
     at: LocalDateTime,

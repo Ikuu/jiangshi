@@ -78,6 +78,7 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.preference.toggle
+import eu.kanade.tachiyomi.data.track.LinkedSeries
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.database.models.Chapter
 import eu.kanade.tachiyomi.data.database.models.orientationType
@@ -1633,6 +1634,12 @@ class ReaderActivity : BaseActivity<ReaderActivityBinding>() {
      * Called from the viewer when the given [chapter] should be preloaded. It should be called when
      * the viewer is reaching the beginning or end of a chapter or the transition page is active.
      */
+    /** Carries on reading in a linked series, in place of this one. */
+    fun openLinkedChapter(next: LinkedSeries.Next) {
+        startActivity(newIntent(this, next.manga, next.chapter))
+        finish()
+    }
+
     fun requestPreloadChapter(chapter: ReaderChapter) {
         lifecycleScope.launch {
             viewModel.preloadChapter(chapter)

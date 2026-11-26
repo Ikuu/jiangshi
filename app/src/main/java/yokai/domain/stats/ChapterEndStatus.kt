@@ -12,7 +12,7 @@ data class ChapterEndStatus(
     /** The chapter just read is what met the goal. */
     val goalJustMet: Boolean,
     val nudge: Nudge?,
-    /** Days in a row with reading, counting today. */
+    /** Days in a row with reading, counting today, or 0 until enough has been read today to count. */
     val streak: Int,
     /** Milestones reached since the reader was opened, newest first. */
     val milestones: List<Milestone>,
@@ -40,7 +40,8 @@ data class ChapterEndStatus(
         /**
          * [saved] is every session recorded so far, and [current] the one still going in the reader, if any.
          * [mangaSource] and [mangaUrl] pick the series whose pace says whether one more chapter would meet a goal in minutes.
-         * Milestones count from [since], such as when the reader opened.
+         * Milestones count from [since], such as when the reader opened, with [finished] the series read to the end,
+         * counting [current].
          */
         fun calculate(
             saved: List<ReadingSession>,
@@ -52,6 +53,7 @@ data class ChapterEndStatus(
             now: Instant,
             zone: ZoneId,
             firstDayOfWeek: DayOfWeek,
+            finished: List<FinishedSeries> = emptyList(),
         ): ChapterEndStatus {
             val sessions = saved + listOfNotNull(current)
             val progress = goal?.progress(sessions, now, zone, firstDayOfWeek)
@@ -62,10 +64,10 @@ data class ChapterEndStatus(
             val nudge = progress?.takeIf { !it.isMet }?.let { nudge(it, seriesSessions, sessions) }
 
             val today = now.atZone(zone).toLocalDate()
-            val days = sessions.filter { it.duration > 0 }.map { Instant.ofEpochMilli(it.startedAt).atZone(zone).toLocalDate() }.toSet()
+            val days = Streak.days(sessions, zone)
             val streak = if (today in days) ReadingStats.streaks(days, today).first else 0
 
-            val milestones = Milestones.calculate(sessions, today, zone).reached.filter { it.reachedAt >= since }
+            val milestones = Milestones.calculate(sessions, today, zone, finished).reached.filter { it.reachedAt >= since }
 
             return ChapterEndStatus(progress, goalJustMet, nudge, streak, milestones)
         }

@@ -6,11 +6,9 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import co.touchlab.kermit.Logger
 import eu.kanade.tachiyomi.data.database.models.LibraryManga
 import eu.kanade.tachiyomi.data.track.TrackManager
-import eu.kanade.tachiyomi.data.track.kavita.KavitaEntryType
 import eu.kanade.tachiyomi.data.database.models.seriesType
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.SourceManager
-import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
 import eu.kanade.tachiyomi.util.system.launchIO
@@ -18,10 +16,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.update
 import uy.kohesive.injekt.injectLazy
 import yokai.domain.chapter.interactor.GetChapter
@@ -35,14 +29,18 @@ import yokai.domain.stats.ReadingGoal
 import yokai.domain.stats.ReadingPace
 import yokai.domain.stats.UnreadEntry
 import eu.kanade.tachiyomi.data.track.kavita.KavitaApi
-import yokai.domain.stats.YearInReview
+import yokai.domain.stats.ReadingReview
+import yokai.domain.stats.ReviewPeriod
 import yokai.domain.stats.Milestones
 import yokai.domain.stats.ReadingSession
 import yokai.domain.stats.ReadingStats
 import yokai.domain.stats.SeriesStats
 import yokai.domain.stats.StatsPeriod
+import yokai.domain.stats.Streak
 import yokai.domain.stats.interactor.DeleteReadingSession
+import yokai.domain.stats.interactor.GetFinishedSeries
 import yokai.domain.stats.interactor.GetReadingSessions
+import yokai.domain.stats.FinishedSeries
 import java.time.LocalDate
 
 class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading) {
@@ -55,6 +53,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private val sourceManager: SourceManager by injectLazy()
     private val trackManager: TrackManager by injectLazy()
     private val preferences: PreferencesHelper by injectLazy()
+    private val getFinishedSeries: GetFinishedSeries by injectLazy()
 
     private var sessions: List<ReadingSession> = emptyList()
     private var mangaByKey: Map<SeriesKey, Manga> = emptyMap()
@@ -70,6 +69,9 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     /** Entry types from the Kavita server, kept for as long as the screen is open. */
     private var kavitaKinds: Map<SeriesKey, Map<String, EntryKind>> = emptyMap()
     private var library: List<LibraryManga> = emptyList()
+
+    /** Series read to the end, newest first. */
+    private var finishedSeries: List<FinishedSeries> = emptyList()
     private var librarySummary: LibrarySummary? = null
 
     /** Sets the reading goal, or clears it with null. */
@@ -106,6 +108,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
                 return@launchIO
             }
             sessions = sessions.filter { it.id != id }
+            finishedSeries = getFinishedSeries.await(sessions)
             librarySummary = librarySummary()
             val period = (state.value as? State.Success)?.period ?: return@launchIO
             mutableState.update { build(period) }
@@ -120,6 +123,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     private fun load(period: StatsPeriod) {
         screenModelScope.launchIO {
             sessions = getReadingSessions.awaitAll()
+            finishedSeries = getFinishedSeries.await(sessions)
             library = getLibraryManga.await().distinctBy { it.manga.id }
             val keys = sessions.map { SeriesKey(it.mangaSource, it.mangaUrl) }.toSet()
             mangaByKey = getManga.awaitAll()
@@ -141,39 +145,14 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
      * how many pages each entry has, so unread series in the library get a better time to clear them.
      */
     private suspend fun fetchKavitaLayouts() {
-        val kavita = trackManager.kavita
         val unreadInLibrary = library.filter { it.unread > 0 }.map { SeriesKey(it.manga.source, it.manga.url) }
-        val missing = (mangaByKey.keys + unreadInLibrary)
-            .filter { it !in kavitaPages && kavita.accept(sourceManager.getOrStub(it.source)) }
-        if (missing.isEmpty()) return
-
-        val fetched = coroutineScope {
-            missing.map { key ->
-                async {
-                    try {
-                        key to kavita.api.getSeriesLayout(key.url).chapters
-                    } catch (e: Exception) {
-                        if (e is CancellationException) throw e
-                        Logger.w(e) { "Could not get Kavita volumes for ${key.url}" }
-                        null
-                    }
-                }
-            }.awaitAll().filterNotNull()
-        }
+        val missing = (mangaByKey.keys + unreadInLibrary).filter { it !in kavitaPages }
+        val fetched = fetchKavitaLayouts(missing, trackManager, sourceManager)
         if (fetched.isEmpty()) return
 
-        kavitaPages = kavitaPages + fetched.associate { (key, chapters) -> key to chapters.mapValues { it.value.pages } }
-        kavitaKinds = kavitaKinds + fetched.filter { it.first in localKinds }.associate { (key, chapters) ->
-            key to localKinds[key].orEmpty().keys.mapNotNull { url ->
-                val id = url.substringAfter("/Chapter/").substringBefore("_").substringBefore("?").toIntOrNull()
-                val type = id?.let { chapters[it]?.type } ?: return@mapNotNull null
-                url to when (type) {
-                    KavitaEntryType.Volume -> EntryKind.Volume
-                    KavitaEntryType.Chapter -> EntryKind.Chapter
-                    KavitaEntryType.Issue -> EntryKind.Issue
-                    KavitaEntryType.Special -> EntryKind.Special
-                }
-            }.toMap()
+        kavitaPages = kavitaPages + fetched.mapValues { (_, chapters) -> chapters.mapValues { it.value.pages } }
+        kavitaKinds = kavitaKinds + fetched.filterKeys { it in localKinds }.mapValues { (key, chapters) ->
+            kavitaEntryKinds(localKinds[key].orEmpty().keys, chapters)
         }
         updateEntryKinds()
         librarySummary = librarySummary()
@@ -182,26 +161,19 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
     }
 
     private fun updateEntryKinds() {
-        entryKinds = localKinds.mapValues { (key, local) ->
-            val kinds = local + kavitaKinds[key].orEmpty()
-            EntryKinds(
-                byUrl = kinds,
-                usual = kinds.values.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key ?: EntryKind.Chapter,
-            )
-        }
+        entryKinds = localKinds.mapValues { (key, local) -> EntryKinds.from(local, kavitaKinds[key].orEmpty()) }
     }
 
     private fun build(period: StatsPeriod): State.Success {
         val stats = ReadingStats.calculate(sessions, period, Instant.now(), ZoneId.systemDefault())
-        val libraryById = library.associateBy { it.manga.id }
 
-        val finished = stats.series.filter { series ->
-            val manga = mangaByKey[series.key] ?: return@filter false
-            val libraryManga = libraryById[manga.id] ?: return@filter false
-            series.chaptersFinished > 0 &&
-                libraryManga.totalChapters > 0 && libraryManga.unread == 0 &&
-                manga.status in FINISHED_STATUSES
-        }
+        // Series read to the end in the period, most recently finished first
+        val periodStart = period.start(Instant.now().atZone(ZoneId.systemDefault()).toLocalDate())
+            ?.atStartOfDay(ZoneId.systemDefault())?.toInstant()?.toEpochMilli() ?: 0L
+        val seriesByKey = stats.series.associateBy { it.key }
+        val finished = finishedSeries
+            .filter { it.finishedAt >= periodStart }
+            .mapNotNull { seriesByKey[SeriesKey(it.mangaSource, it.mangaUrl)] }
 
         val genres = mutableMapOf<String, Long>()
         stats.series.forEach { series ->
@@ -217,7 +189,7 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
         val zone = ZoneId.systemDefault()
         val today = now.atZone(zone).toLocalDate()
         // The streak carries over from yesterday until today is over, so it's at risk until something's read
-        val streakAtRisk = stats.currentStreak > 0 && today !in stats.readingDays
+        val streakAtRisk = stats.currentStreak > 0 && !Streak.counts(stats.readingDays[today] ?: 0L)
 
         return State.Success(
             period = period,
@@ -225,8 +197,8 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             goal = ReadingGoal.decode(preferences.readingGoal().get())
                 ?.progress(sessions, now, zone, WeekFields.of(Locale.getDefault()).firstDayOfWeek),
             streakAtRisk = streakAtRisk,
-            years = YearInReview.years(sessions, zone),
-            milestones = Milestones.calculate(sessions, today, zone),
+            reviews = listOfNotNull(ReadingReview.months(sessions, zone).firstOrNull(), ReadingReview.years(sessions, zone).firstOrNull()),
+            milestones = Milestones.calculate(sessions, today, zone, finishedSeries),
             hasAnyReading = sessions.isNotEmpty(),
             mangaByKey = mangaByKey,
             entryKinds = entryKinds,
@@ -274,11 +246,6 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
 
     data class SeriesKey(val source: Long, val url: String)
 
-    /** Whether a series' entries are chapters, issues or volumes, so counts use the right word. */
-    data class EntryKinds(val byUrl: Map<String, EntryKind>, val usual: EntryKind) {
-        fun of(url: String): EntryKind = byUrl[url] ?: usual
-    }
-
     @Immutable
     data class LibrarySummary(
         val seriesCount: Int,
@@ -302,13 +269,14 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
             val goal: GoalProgress?,
             /** There's a streak going, and nothing read yet today to keep it. */
             val streakAtRisk: Boolean,
-            /** Years with any reading, newest first, for the year in review. */
-            val years: List<Int>,
+            /** The latest month and year with any reading, for their reviews, or none without reading. */
+            val reviews: List<ReviewPeriod>,
             /** All time, whatever the period. */
             val milestones: Milestones,
             val hasAnyReading: Boolean,
             val mangaByKey: Map<SeriesKey, Manga>,
             val entryKinds: Map<SeriesKey, EntryKinds>,
+            /** Series read to the end in the period, most recently finished first. */
             val finished: List<SeriesStats>,
             val topGenres: List<Pair<String, Long>>,
             val library: LibrarySummary?,
@@ -319,7 +287,6 @@ class StatsScreenModel : StateScreenModel<StatsScreenModel.State>(State.Loading)
         private const val TOP_GENRES = 8
         private const val STALLED_DAYS = 30L
         private const val STALLED_LIMIT = 5
-        private val FINISHED_STATUSES = setOf(SManga.COMPLETED, SManga.PUBLISHING_FINISHED, SManga.CANCELLED)
     }
 }
 

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.CardColors
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.compose.pluralStringResource
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.data.database.models.Chapter
+import eu.kanade.tachiyomi.data.track.LinkedSeries
 import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.viewer.missingChapterCount
@@ -67,6 +69,8 @@ fun ChapterTransition(
     currChapterDownloaded: Boolean,
     goingToChapterDownloaded: Boolean,
     chapterEnd: ChapterEndStatus? = null,
+    linkedNext: LinkedSeries.Next? = null,
+    onOpenLinked: (LinkedSeries.Next) -> Unit = {},
 ) {
     val currChapter = transition.from.chapter
     val goingToChapter = transition.to?.chapter
@@ -100,6 +104,10 @@ fun ChapterTransition(
                         fallbackLabel = stringResource(MR.strings.theres_no_next_chapter),
                         chapterGap = chapterGap,
                     )
+                    if (goingToChapter == null && linkedNext != null) {
+                        Spacer(Modifier.height(VerticalSpacerSize))
+                        LinkedNextCard(linkedNext, onOpenLinked)
+                    }
                     if (chapterEnd != null) {
                         Spacer(Modifier.height(VerticalSpacerSize))
                         ChapterEndCard(chapterEnd, hasNextChapter = goingToChapter != null)
@@ -307,6 +315,37 @@ private fun ChapterText(
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodySmall,
             )
+        }
+    }
+}
+
+/** The chapter to carry on with in the linked series on the other server, after the last chapter here. */
+@Composable
+private fun LinkedNextCard(next: LinkedSeries.Next, onOpen: (LinkedSeries.Next) -> Unit) {
+    OutlinedCard(
+        modifier = Modifier
+            .widthIn(max = 460.dp)
+            .fillMaxWidth(),
+        colors = CardColor,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            ChapterHeaderText(stringResource(MR.strings.linked_next_title, stringResource(next.server)))
+            Text(
+                text = next.chapter.preferredChapterName(next.manga),
+                fontSize = 20.sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            FilledTonalButton(
+                onClick = { onOpen(next) },
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(stringResource(MR.strings.linked_next_read))
+            }
         }
     }
 }

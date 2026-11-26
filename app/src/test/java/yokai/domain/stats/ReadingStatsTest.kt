@@ -163,6 +163,15 @@ class ReadingStatsTest {
     }
 
     @Test
+    fun `a day with under a minute of reading shows on the calendar but doesn't count towards the streak`() {
+        val sessions = listOf(session(day(16), 10), session(day(17), 10)) + briefSession(day(18), 20)
+        val stats = ReadingStats.calculate(sessions, StatsPeriod.ALL, now, zone)
+
+        assertEquals(2, stats.currentStreak)
+        assertEquals(20_000L, stats.readingDays[LocalDate.of(2026, 11, 18)])
+    }
+
+    @Test
     fun `empty when nothing was read`() {
         val stats = ReadingStats.calculate(emptyList(), StatsPeriod.ALL, now, zone)
         assertTrue(stats.isEmpty)

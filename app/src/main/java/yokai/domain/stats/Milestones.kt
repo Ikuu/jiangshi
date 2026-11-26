@@ -11,6 +11,7 @@ enum class MilestoneKind(val thresholds: List<Long>) {
     PAGES(listOf(1_000, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000)),
     SERIES(listOf(5, 10, 25, 50, 100, 250, 500, 1_000)),
     STREAK(listOf(3, 7, 14, 30, 60, 100, 200, 365, 500, 1_000)),
+    FINISHED(listOf(1, 5, 10, 25, 50, 100, 250, 500)),
 }
 
 /** A round number reached, such as the 1,000th chapter finished, and when it was reached. */
@@ -45,9 +46,16 @@ data class Milestones(
     companion object {
         /**
          * Works out milestones from every session, oldest first, so each one is dated by the session that
-         * reached it. A chapter finished again doesn't count twice, and a streak is reached on its last day.
+         * reached it. A chapter finished again doesn't count twice, and a streak is reached on its last day, by the
+         * session that makes that day's reading enough to count. A series in [finished] is counted by the session
+         * that finished it.
          */
-        fun calculate(allSessions: List<ReadingSession>, today: LocalDate, zone: ZoneId): Milestones {
+        fun calculate(
+            allSessions: List<ReadingSession>,
+            today: LocalDate,
+            zone: ZoneId,
+            finished: List<FinishedSeries> = emptyList(),
+        ): Milestones {
             fun ReadingSession.day(): LocalDate = Instant.ofEpochMilli(startedAt).atZone(zone).toLocalDate()
 
             val sessions = allSessions.sortedBy { it.startedAt }
@@ -62,12 +70,17 @@ data class Milestones(
 
             val chapters = mutableSetOf<Triple<Long, String, String>>()
             val series = mutableSetOf<Pair<Long, String>>()
+            val finishedBy = finished.associateBy { it.mangaSource to it.mangaUrl }
+            val seriesFinished = mutableSetOf<Pair<Long, String>>()
             var time = 0L
             var pages = 0L
             var streak = 0
             var longestStreak = 0
             var longestStreakEnd: LocalDate? = null
             var lastDay: LocalDate? = null
+            // Reading so far on the day being added up, which counts towards the streak once it's enough
+            var day: LocalDate? = null
+            var dayTime = 0L
 
             sessions.forEach { session ->
                 val at = session.endedAt
@@ -81,20 +94,27 @@ data class Milestones(
                 count(MilestoneKind.PAGES, pages, at)
                 series += session.mangaSource to session.mangaUrl
                 count(MilestoneKind.SERIES, series.size.toLong(), at)
+                val key = session.mangaSource to session.mangaUrl
+                if (finishedBy[key]?.finishedBy(session) == true && seriesFinished.add(key)) {
+                    count(MilestoneKind.FINISHED, seriesFinished.size.toLong(), at)
+                }
 
-                if (session.duration > 0) {
-                    val day = session.day()
-                    if (day != lastDay) {
-                        streak = if (lastDay?.plusDays(1) == day) streak + 1 else 1
-                        lastDay = day
-                        // A streak milestone can be reached again after a break, but counts from the first time
-                        if (streak > (counts[MilestoneKind.STREAK] ?: 0L)) {
-                            count(MilestoneKind.STREAK, streak.toLong(), session.startedAt)
-                        }
-                        if (streak > longestStreak) {
-                            longestStreak = streak
-                            longestStreakEnd = day
-                        }
+                val sessionDay = session.day()
+                if (sessionDay != day) {
+                    day = sessionDay
+                    dayTime = 0L
+                }
+                dayTime += session.duration
+                if (Streak.counts(dayTime) && sessionDay != lastDay) {
+                    streak = if (lastDay?.plusDays(1) == sessionDay) streak + 1 else 1
+                    lastDay = sessionDay
+                    // A streak milestone can be reached again after a break, but counts from the first time
+                    if (streak > (counts[MilestoneKind.STREAK] ?: 0L)) {
+                        count(MilestoneKind.STREAK, streak.toLong(), session.startedAt)
+                    }
+                    if (streak > longestStreak) {
+                        longestStreak = streak
+                        longestStreakEnd = sessionDay
                     }
                 }
             }
@@ -107,6 +127,7 @@ data class Milestones(
                 MilestoneKind.PAGES to pages,
                 MilestoneKind.SERIES to series.size.toLong(),
                 MilestoneKind.STREAK to currentStreak.toLong(),
+                MilestoneKind.FINISHED to seriesFinished.size.toLong(),
             )
             val reachedKeys = reached.map { it.key }.toSet()
             val next = MilestoneKind.entries.mapNotNull { kind ->

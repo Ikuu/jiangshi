@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -70,7 +72,6 @@ import eu.kanade.tachiyomi.domain.manga.models.Manga
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.manga.MangaDetailsController
 import eu.kanade.tachiyomi.util.chapter.ChapterUtil
-import eu.kanade.tachiyomi.util.chapter.ChapterUtil.Companion.EntryKind
 import eu.kanade.tachiyomi.util.compose.LocalBackPress
 import eu.kanade.tachiyomi.util.compose.LocalRouter
 import eu.kanade.tachiyomi.util.compose.currentOrThrow
@@ -86,6 +87,7 @@ import yokai.domain.stats.ReadingCategory
 import yokai.domain.stats.ReadingStats
 import yokai.domain.stats.SeriesStats
 import yokai.domain.stats.StatsPeriod
+import yokai.domain.stats.ReviewPeriod
 import yokai.domain.stats.TimelineUnit
 import yokai.i18n.MR
 import yokai.presentation.AppBarType
@@ -139,7 +141,7 @@ class StatsScreen : Screen() {
                     bottomPadding = tab?.bottomPadding ?: 0.dp,
                     onPeriodChange = screenModel::setPeriod,
                     onGoalChange = screenModel::setGoal,
-                    onOpenYear = { navigator.push(YearInReviewScreen(it)) },
+                    onOpenReview = { navigator.push(ReadingReviewScreen(it)) },
                     sessionsOn = screenModel::sessionsOn,
                     chapterName = screenModel::chapterName,
                     onDeleteSession = screenModel::deleteSession,
@@ -157,7 +159,7 @@ private fun StatsContent(
     bottomPadding: androidx.compose.ui.unit.Dp,
     onPeriodChange: (StatsPeriod) -> Unit,
     onGoalChange: (ReadingGoal?) -> Unit,
-    onOpenYear: (Int) -> Unit,
+    onOpenReview: (ReviewPeriod) -> Unit,
     sessionsOn: (LocalDate) -> List<ReadingSession>,
     chapterName: (ReadingSession) -> String?,
     onDeleteSession: (ReadingSession) -> Unit,
@@ -216,8 +218,14 @@ private fun StatsContent(
                     Message(emoji + pluralStringResource(MR.plurals.stats_streak_at_risk, streak, streak), null)
                 }
             }
-            state.years.firstOrNull()?.let { year ->
-                item(key = "year_in_review") { YearInReviewCard(year) { onOpenYear(year) } }
+            if (state.reviews.isNotEmpty()) {
+                item(key = "reviews") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.height(IntrinsicSize.Min)) {
+                        state.reviews.forEach { period ->
+                            ReviewCard(period, Modifier.weight(1f).fillMaxHeight()) { onOpenReview(period) }
+                        }
+                    }
+                }
             }
 
             item(key = "period") { PeriodSelector(state.period, onPeriodChange) }
@@ -528,22 +536,27 @@ private fun <T> ChoiceRow(options: List<Pair<T, dev.icerock.moko.resources.Strin
 }
 
 @Composable
-private fun YearInReviewCard(year: Int, onClick: () -> Unit) {
+private fun ReviewCard(period: ReviewPeriod, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.secondaryContainer,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    stringResource(MR.strings.stats_year_in_review, year),
+                    reviewTitle(period),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
                 Text(
-                    stringResource(MR.strings.stats_year_in_review_body),
+                    stringResource(
+                        when (period) {
+                            is ReviewPeriod.Year -> MR.strings.stats_year_in_review_body
+                            is ReviewPeriod.Month -> MR.strings.stats_month_in_review_body
+                        },
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
@@ -739,7 +752,7 @@ private fun LazyListScope.seriesSection(
                     SeriesRow(
                         rank = index + 1,
                         series = series,
-                        entries = LocalContext.current.entriesRead(state, series),
+                        entries = LocalContext.current.entriesRead(state.entryKinds, series),
                         manga = state.mangaByKey[series.key],
                         fraction = series.time.toFloat() / maxTime,
                         time = time,
@@ -759,7 +772,7 @@ private fun LazyListScope.seriesSection(
                         SeriesRow(
                             rank = null,
                             series = series,
-                            entries = LocalContext.current.entriesRead(state, series),
+                            entries = LocalContext.current.entriesRead(state.entryKinds, series),
                             manga = state.mangaByKey[series.key],
                             fraction = null,
                             time = time,
@@ -844,7 +857,7 @@ private fun LazyListScope.typesSection(state: StatsScreenModel.State.Success, ti
                     listOfNotNull(
                         stats.series
                             .filter { it.category == type.category }
-                            .flatMap { series -> series.finishedChapterUrls.map { state.entryKind(series, it) } }
+                            .flatMap { series -> series.finishedChapterUrls.map { state.entryKinds.entryKind(series, it) } }
                             .takeIf { it.isNotEmpty() }
                             ?.let { context.getString(MR.strings.stats_entries_read, ChapterUtil.entryCountText(context, it)) },
                         type.timePerChapter?.let { context.getString(MR.strings.stats_per_chapter, time(it)) },
@@ -1068,25 +1081,6 @@ internal fun Message(title: String, body: String?) {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-}
-
-private fun StatsScreenModel.State.Success.entryKind(series: SeriesStats, url: String): EntryKind =
-    (entryKinds[series.key]?.of(url) ?: EntryKind.Chapter).forCategory(series.category)
-
-/** A numbered chapter of a comic is an issue, even where Kavita files it under a volume. */
-private fun EntryKind.forCategory(category: ReadingCategory): EntryKind =
-    if (this == EntryKind.Chapter && category == ReadingCategory.COMIC) EntryKind.Issue else this
-
-/** "3 issues read", or "0 volumes read" in the series' usual kind of entry when none were finished. */
-private fun Context.entriesRead(state: StatsScreenModel.State.Success, series: SeriesStats): String {
-    val kinds = series.finishedChapterUrls.map { state.entryKind(series, it) }
-    val count = if (kinds.isEmpty()) {
-        val usual = (state.entryKinds[series.key]?.usual ?: EntryKind.Chapter).forCategory(series.category)
-        getString(usual.plural, 0, 0)
-    } else {
-        ChapterUtil.entryCountText(this, kinds)
-    }
-    return getString(MR.strings.stats_entries_read, count)
 }
 
 internal fun categoryName(category: ReadingCategory) = when (category) {

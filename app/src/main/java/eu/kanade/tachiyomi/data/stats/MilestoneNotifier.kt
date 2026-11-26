@@ -23,6 +23,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import yokai.domain.stats.Milestone
 import yokai.domain.stats.Milestones
+import yokai.domain.stats.interactor.GetFinishedSeries
 import yokai.domain.stats.interactor.GetReadingSessions
 import yokai.i18n.MR
 import yokai.presentation.stats.MILESTONE_EMOJI
@@ -46,7 +47,8 @@ object MilestoneNotifier {
         val preferences = Injekt.get<PreferencesHelper>()
         if (!preferences.milestoneNotifications().get()) return
         val sessions = Injekt.get<GetReadingSessions>().awaitAll()
-        val reached = Milestones.calculate(sessions, LocalDate.now(), ZoneId.systemDefault()).reached
+        val finished = Injekt.get<GetFinishedSeries>().await(sessions)
+        val reached = Milestones.calculate(sessions, LocalDate.now(), ZoneId.systemDefault(), finished).reached
         val announced = preferences.milestonesAnnounced().get()
         if (STARTED !in announced) {
             // Milestones from before notifications were turned on aren't news

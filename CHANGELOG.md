@@ -4,6 +4,15 @@ All notable changes to Jiangshi are listed here. Each release's notes are also o
 
 ## [Unreleased]
 
+### Additions
+- Statistics counts the series you've read to the end: ones that have finished publishing, been completed or cancelled, with every chapter read. Each is dated by the day you finished the last chapter it needed. Finishing series is a milestone, from the first one on, and shows in Next up with the others. The Finished list on Statistics shows the series finished in the period you're looking at, and Year in review and Month in review count them. Series finished before reading time was recorded, in 1.5.0, aren't counted
+- When you finish the last chapter of a series linked with one on the other server, the page between chapters offers the next unread chapter there, such as Suwayomi's newer chapters after the last Kavita volume. Tap Read to carry on in that series. It picks up after the furthest chapter read in either series. After a whole volume, it needs a chapter marked read on the other server to know where to pick up
+- Month in review, like the year in review for a single month: time read compared with the month before, chapters, pages, series, days read and the longest streak, the busiest day, a chart of each day's reading, and the top series, genres and types. Open it from the Statistics page, next to the year in review, and use the arrows to step through the other months you read in
+
+### Fixes
+- A day only counts towards your reading streak once you've read for at least a minute that day. Before, any reading at all counted, so waking the tablet with a chapter still open after midnight kept the streak going. This covers the streak in Statistics, between chapters, in milestones and personal bests, and in Year in review. The streak reminder now waits for that minute before it goes away. Short reading still shows on the calendar and in your totals
+- Year in review's top series name Kavita entries the way the Statistics page does, asking the server whether they're volumes, issues or chapters. A Kavita series read by volume had shown as issues or chapters, such as "0 issues read". Month in review does the same
+
 ## [1.10.0] - 2026-11-23
 
 ### Additions

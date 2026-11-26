@@ -1,6 +1,6 @@
 # Feature ideas
 
-Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added to on 2026-11-23. Open ideas are grouped by area, with done ones and the release they shipped in at the end.
+Ideas from the Suwayomi and Kavita sync work, started 2026-11-08, last added to on 2026-11-23 and checked against 1.11.0 on 2026-11-26. Open ideas are grouped by area, with done ones and the release they shipped in at the end.
 
 ## To do
 
@@ -24,7 +24,6 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | Idea | What you'd get | Effort |
 | --- | --- | --- |
 | **Rest days** | Choose one or two days a week that don't break the streak if you don't read | Small |
-| **Month in review** | The year in review, for a single month | Small |
 | **Export statistics** | Save reading sessions as a CSV file | Small |
 | **Older reading in Statistics** | Chapters read before 1.5.0 count towards Statistics, estimated from the time read and date already in history, and marked as estimated | Small to medium |
 | **Statistics widget** | A home screen widget with the current streak and today's progress towards the goal. The app already has a widget module to build on | Medium |
@@ -38,10 +37,10 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 
 ## Known follow-ups
 
-- [ ] **Year in review entry names.** Top series in the year in review count issues for comics and chapters otherwise, where the Statistics page asks Kavita whether entries are volumes. A Kavita series read by volume shows "0 issues read".
 - [ ] **Linked series during library updates.** Library updates bring in chapters read on a Suwayomi server, but don't pass them on to a linked Kavita series. That happens when the series is opened.
-- [ ] **1.8.0 features partly tested on a device.** On the tablet (2026-11-22), server status reached both servers, the settings appear, the sessions list opens with chapter names, and Linked series lists the Suwayomi series. Still to try: actually linking two series, a recap notification, downloading ahead after finishing a Suwayomi chapter, and deleting a session.
+- [ ] **1.8.0 features partly tested on a device.** On the tablet (2026-11-22), server status reached both servers, the settings appear, the sessions list opens with chapter names, and Linked series lists the Suwayomi series. Still to try: actually linking two series (including one outside the library, from 1.9.0), a recap notification, downloading ahead after finishing a Suwayomi chapter, and deleting a session.
 - [ ] **Goal progress between chapters untested in the reader.** The Statistics milestones were checked on the tablet (2026-11-23), but the card on the page between chapters, the nudge and the milestone notification haven't been seen on a device yet.
+- [ ] **1.11.0 untested on a device.** Month in review, a finished series reaching a milestone between chapters, and Carry on in a linked series after the last chapter haven't been tried on the tablet. The Read button sits on the page between chapters, so check a tap there opens the other series without the reader's tap zones getting in the way.
 - [ ] **Untested on a device.** Marking chapters read or unread from the library and Recents screens uses the same code as the series screen, but hasn't been tried on a real device.
 
 ## Done
@@ -77,6 +76,8 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | **Pending tracker updates** | Settings → Tracking lists tracker updates and Suwayomi read marks still waiting to be sent, with Send now and discard | 1.6.0 |
 | **Server status** | Settings shows whether Kavita and Suwayomi can be reached, their version and whether you're signed in, with sign-in errors explained in plain words | 1.8.0 |
 | **One series on both servers** | Link a series in Kavita with the same series in Suwayomi, so reading one marks the matching chapters read in the other | 1.8.0 |
+| **Link to a series outside the library** | Linked series searches the other server, so the series there doesn't need adding to the library first. Its chapters are fetched from its server when needed, and Clear database keeps it | 1.9.0 |
+| **Carry on in the linked series** | After the last chapter of a linked series, the page between chapters offers the next unread chapter in the series on the other server, with a Read button | 1.11.0 |
 
 ### Statistics and goals
 
@@ -87,7 +88,13 @@ Ideas from the Suwayomi and Kavita sync work, started 2026-11-08 and last added 
 | **Streak reminder notification** | A notification in the evening when the streak would end, rather than only a note on the Statistics page | 1.7.0 |
 | **Edit reading sessions** | See each session for a day and delete wrong ones, such as a reader left open, so the stats can be fixed. Opened from a day in the reading calendar | 1.8.0 |
 | **Weekly recap** | An optional notification on the last evening of the week with the week's time read and chapters, compared with the week before | 1.8.0 |
+| **Statistics tab** | Statistics has its own tab next to Browse, in place of its ⋮ menu item | 1.9.0 |
+| **Larger reading calendar** | The last nine weeks as larger numbered squares with weekday and month names, with Show more for the smaller squares going back further | 1.9.0 |
+| **Sessions with covers** | A day's sessions show the series cover, chapter, start time, length, pages and a tick for a finished chapter, and open the series when tapped | 1.9.0 |
+| **Merged reading sessions** | Reading the same chapter again within 15 minutes adds to its last session, so turning the screen off or rotating no longer splits one sitting into many | 1.9.0 |
 | **Milestones** | Round numbers reached for chapters, hours, pages, series and days in a row on the Statistics page, with the next ones to aim for, personal bests and an optional notification. Series finished aren't counted, as reading sessions don't say when a series is complete | 1.10.0 |
+| **Month in review** | The year in review for a single month, with a chart of each day and arrows to step through the months | 1.11.0 |
+| **Finished series** | Series that have finished publishing with every chapter read count as finished, dated by the session that finished the last chapter they needed. A milestone, on the Finished list for the period, and in the year and month reviews | 1.11.0 |
 
 ### Series pages
 

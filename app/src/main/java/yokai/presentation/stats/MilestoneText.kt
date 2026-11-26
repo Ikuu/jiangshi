@@ -19,6 +19,7 @@ private fun MilestoneKind.plural(): PluralsResource = when (this) {
     MilestoneKind.PAGES -> MR.plurals.milestone_pages
     MilestoneKind.SERIES -> MR.plurals.milestone_series
     MilestoneKind.STREAK -> MR.plurals.milestone_streak
+    MilestoneKind.FINISHED -> MR.plurals.milestone_finished
 }
 
 /** What's counted, as a label for progress towards the next milestone. */
@@ -28,6 +29,7 @@ fun MilestoneKind.label(): StringResource = when (this) {
     MilestoneKind.PAGES -> MR.strings.stats_pages_read
     MilestoneKind.SERIES -> MR.strings.stats_series_read
     MilestoneKind.STREAK -> MR.strings.stats_days_in_a_row
+    MilestoneKind.FINISHED -> MR.strings.stats_series_finished
 }
 
 /** "1,000 chapters finished" or "30 day streak". */
